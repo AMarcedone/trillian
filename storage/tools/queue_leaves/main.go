@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	mySQLURI            = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "Connection URI for MySQL database")
+	mySQLURI            = flag.String("mysql_uri", "testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB", "Connection URI for MySQL database")
 	treeIDFlag          = flag.Int64("treeid", 3, "The tree id to use")
 	numInsertionsFlag   = flag.Int("num_insertions", 10, "Number of entries to insert in the tree")
 	startInsertFromFlag = flag.Int("start_from", 0, "The sequence number of the first inserted item")

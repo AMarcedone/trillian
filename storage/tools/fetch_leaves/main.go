@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	mySQLURI           = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "Connection URI for MySQL database")
+	mySQLURI           = flag.String("mysql_uri", "testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB", "Connection URI for MySQL database")
 	treeIDFlag         = flag.Int64("treeid", 3, "The tree id to use")
 	fetchLeavesFlag    = flag.Int("fetch_leaves", 1, "Number of entries to fetch")
 	startFetchFromFlag = flag.Int("start_fetch_at", 0, "The sequence number of the first leaf to fetch")

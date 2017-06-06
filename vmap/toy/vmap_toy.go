@@ -34,7 +34,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var mySQLURIFlag = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "")
+var mySQLURIFlag = flag.String("mysql_uri", "testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB", "Connection URI for MySQL database")
 
 func main() {
 	flag.Parse()

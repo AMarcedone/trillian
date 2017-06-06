@@ -223,7 +223,7 @@ func diffNodes(got, want []storage.Node) ([]storage.Node, []storage.Node) {
 }
 
 func openTestDBOrDie() *sql.DB {
-	db, err := OpenDB("test:zaphod@tcp(127.0.0.1:3306)/test")
+	db, err := OpenDB("testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB")
 	if err != nil {
 		panic(err)
 	}

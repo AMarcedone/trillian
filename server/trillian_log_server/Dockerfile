@@ -1,8 +1,8 @@
 FROM golang
 
-ENV DB_USER=test \
-    DB_PASSWORD=zaphod \
-    DB_DATABASE=test \
+ENV DB_USER=testTrillianUser \
+    DB_PASSWORD=testTrillianUserPwd \
+    DB_DATABASE=testTrillianDB \
     DB_HOST=127.0.0.0:3306 
 
 ENV HOST=0.0.0.0 \

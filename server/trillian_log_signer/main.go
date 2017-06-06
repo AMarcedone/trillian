@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	mySQLURI                 = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "Connection URI for MySQL database")
+	mySQLURI                 = flag.String("mysql_uri", "testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB", "Connection URI for MySQL database")
 	httpEndpoint             = flag.String("http_endpoint", "localhost:8091", "Endpoint for HTTP (host:port, empty means disabled)")
 	sequencerIntervalFlag    = flag.Duration("sequencer_interval", time.Second*10, "Time between each sequencing pass through all logs")
 	batchSizeFlag            = flag.Int("batch_size", 50, "Max number of leaves to process per batch")

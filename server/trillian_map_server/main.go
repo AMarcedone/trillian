@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	mySQLURI           = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "Connection URI for MySQL database")
+	mySQLURI           = flag.String("mysql_uri", "testTrillianUser:testTrillianUserPwd@tcp(127.0.0.1:3306)/testTrillianDB", "Connection URI for MySQL database")
 	rpcEndpoint        = flag.String("rpc_endpoint", "localhost:8090", "Endpoint for RPC requests (host:port)")
 	httpEndpoint       = flag.String("http_endpoint", "localhost:8091", "Endpoint for HTTP metrics and REST requests on (host:port, empty means disabled)")
 	maxUnsequencedRows = flag.Int("max_unsequenced_rows", mysqlq.DefaultMaxUnsequenced, "Max number of unsequenced rows before rate limiting kicks in")
