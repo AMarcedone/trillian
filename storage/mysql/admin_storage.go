@@ -130,7 +130,12 @@ func (t *adminTX) GetTree(ctx context.Context, treeID int64) (*trillian.Tree, er
 		return nil, err
 	}
 	defer stmt.Close()
-	return readTree(stmt.QueryRowContext(ctx, treeID))
+
+	tree, err := readTree(stmt.QueryRowContext(ctx, treeID))
+	if err != nil {
+		return nil, fmt.Errorf("GetTree(): unable to read tree with id %v (use createtree to create new trees): %+v", treeID, err)
+	}
+	return tree, err
 }
 
 // There's no common interface between sql.Row and sql.Rows(!), so we have to
