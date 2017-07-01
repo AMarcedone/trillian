@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -33,7 +34,6 @@ import (
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/storage"
 	"github.com/google/trillian/storage/testonly"
-	"github.com/google/trillian/testonly/matchers"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -300,13 +300,18 @@ func TestSigner(t *testing.T) {
 		tree.HashStrategy = trillian.HashStrategy_RFC6962_SHA256
 		tree.SignatureAlgorithm = test.sigAlgo
 
-		var keyProto ptypes.DynamicAny
-		if err := ptypes.UnmarshalAny(tree.PrivateKey, &keyProto); err != nil {
+		var wantKeyProto ptypes.DynamicAny
+		if err := ptypes.UnmarshalAny(tree.PrivateKey, &wantKeyProto); err != nil {
 			t.Errorf("%v: failed to unmarshal tree.PrivateKey: %v", test.desc, err)
 		}
 
-		sf := keys.NewMockSignerFactory(ctrl)
-		sf.EXPECT().NewSigner(ctx, matchers.ProtoEqual(keyProto.Message)).MaxTimes(1).Return(test.signer, test.signerFactoryErr)
+		sf := keys.NewSignerFactory()
+		sf.AddHandler(wantKeyProto.Message, func(ctx context.Context, gotKeyProto proto.Message) (crypto.Signer, error) {
+			if !proto.Equal(gotKeyProto, wantKeyProto.Message) {
+				return nil, fmt.Errorf("SignerFactory.NewSigner(_, %#v) called, want NewSigner(_, %#v)", gotKeyProto, wantKeyProto.Message)
+			}
+			return test.signer, test.signerFactoryErr
+		})
 
 		signer, err := Signer(ctx, sf, &tree)
 		if hasErr := err != nil; hasErr != test.wantErr {

@@ -1,0 +1,80 @@
+// Copyright 2017 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package keys
+
+import (
+	"context"
+	"crypto"
+	"errors"
+	"testing"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/google/trillian/testonly"
+)
+
+func fakeHandler(signer crypto.Signer, err error) ProtoHandler {
+	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+		return signer, err
+	}
+}
+
+func TestNewSigner(t *testing.T) {
+	wantSigner, err := NewFromPrivatePEM(testonly.DemoPrivateKey, testonly.DemoPrivateKeyPass)
+	if err != nil {
+		t.Fatalf("Error unmarshaling test private key: %v", err)
+	}
+
+	for _, test := range []struct {
+		name     string
+		keyProto proto.Message
+		handler  ProtoHandler
+		wantErr  bool
+	}{
+		{
+			name:     "KeyProto with handler",
+			keyProto: &empty.Empty{},
+			handler:  fakeHandler(wantSigner, nil),
+		},
+		{
+			name:     "Invalid KeyProto with handler",
+			keyProto: &empty.Empty{},
+			handler:  fakeHandler(nil, errors.New("invalid KeyProto")),
+			wantErr:  true,
+		},
+		{
+			name:     "KeyProto with no handler",
+			keyProto: &empty.Empty{},
+			wantErr:  true,
+		},
+		{
+			name:    "Nil KeyProto",
+			wantErr: true,
+		},
+	} {
+		sf := NewSignerFactory()
+		if test.handler != nil {
+			sf.AddHandler(test.keyProto, test.handler)
+		}
+
+		gotSigner, err := sf.NewSigner(context.Background(), test.keyProto)
+		switch gotErr := err != nil; {
+		case gotErr != test.wantErr:
+			t.Errorf("%v: NewSigner() = (_, %q), want err? %v", test.name, err, test.wantErr)
+		case !gotErr && gotSigner != wantSigner:
+			t.Errorf("%v: NewSigner() = (%#v, _), want (%#v, _)", test.name, gotSigner, wantSigner)
+		}
+	}
+}

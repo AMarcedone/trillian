@@ -21,6 +21,7 @@ echo "Provision map"
 TEST_TREE_ID=$(./createtree \
   --admin_server="localhost:${RPC_PORT}" \
   --tree_type=MAP \
+  --private_key_format=PrivateKey \
   --pem_key_path=${TRILLIAN_PATH}/testdata/map-rpc-server.privkey.pem \
   --pem_key_password=towel \
   --hash_strategy=TEST_MAP_HASHER \
@@ -30,7 +31,7 @@ echo "Created tree ${TEST_TREE_ID}"
 echo "Running test"
 cd "${INTEGRATION_DIR}"
 set +e
-go test -run ".*LiveMap.*" --timeout=5m ./ --map_id ${TEST_TREE_ID} --map_rpc_server="localhost:${RPC_PORT}" --pubkey=${TRILLIAN_PATH}/testdata/map-rpc-server.pubkey.pem
+go test ${GOFLAGS} -run ".*LiveMap.*" --timeout=5m ./ --map_id ${TEST_TREE_ID} --map_rpc_server="localhost:${RPC_PORT}" --pubkey=${TRILLIAN_PATH}/testdata/map-rpc-server.pubkey.pem
 RESULT=$?
 set -e
 

@@ -51,11 +51,14 @@ func NewMapEnv(ctx context.Context, testID string) (*MapEnv, error) {
 		return nil, err
 	}
 
+	sf := keys.NewSignerFactory()
+	sf.AddHandler(keys.PrivateKeyProtoHandler())
+
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		MapStorage:    mysql.NewMapStorage(db),
 		QuotaManager:  quota.Noop(),
-		SignerFactory: &keys.DefaultSignerFactory{},
+		SignerFactory: sf,
 	}
 
 	ret, err := NewMapEnvWithRegistry(ctx, testID, registry)

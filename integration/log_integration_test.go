@@ -109,9 +109,12 @@ func TestInProcessLogIntegrationDuplicateLeaves(t *testing.T) {
 	const numSequencers = 2
 	ms := memory.NewLogStorage(nil)
 
+	sf := keys.NewSignerFactory()
+	sf.AddHandler(keys.PrivateKeyProtoHandler())
+
 	reggie := extension.Registry{
 		AdminStorage:  memory.NewAdminStorage(ms),
-		SignerFactory: &keys.DefaultSignerFactory{},
+		SignerFactory: sf,
 		LogStorage:    ms,
 		QuotaManager:  quota.Noop(),
 	}

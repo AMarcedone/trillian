@@ -29,10 +29,13 @@ func NewRegistryForTests(testID string) (extension.Registry, error) {
 		return extension.Registry{}, err
 	}
 
+	sf := keys.NewSignerFactory()
+	sf.AddHandler(keys.PrivateKeyProtoHandler())
+
 	return extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		LogStorage:    mysql.NewLogStorage(db, nil),
-		SignerFactory: &keys.DefaultSignerFactory{},
+		SignerFactory: sf,
 		MapStorage:    mysql.NewMapStorage(db),
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: mysqlq.DefaultMaxUnsequenced},
 	}, nil

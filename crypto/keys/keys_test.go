@@ -19,10 +19,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/asn1"
+	"errors"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/google/trillian/crypto/keyspb"
-	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/testonly"
 )
 
@@ -57,9 +61,6 @@ NHcCAQEEIHG5m/q2sUSa4P8pRZgYt3K0ESFSKp1qp15VjJhpLle4oAoGCCqGSM49AwEHoUQDQgAEvuyn
 )
 
 func TestLoadPrivateKeyAndSign(t *testing.T) {
-	hasher := crypto.SHA256
-	digest := []byte("\x2c\xf2\x4d\xba\x5f\xb0\xa3\x0e\x26\xe8\x3b\x2a\xc5\xb9\xe2\x9e\x1b\x16\x1e\x5c\x1f\xa7\x42\x5e\x73\x04\x33\x62\x93\x8b\x98\x24")
-
 	tests := []struct {
 		name        string
 		keyPEM      string
@@ -141,57 +142,14 @@ func TestLoadPrivateKeyAndSign(t *testing.T) {
 			continue
 		}
 
-		signature, err := k.Sign(rand.Reader, digest, hasher)
-		if err != nil {
-			t.Errorf("%v: failed to sign: %v", test.name, err)
-			continue
-		}
-
-		// Do a round trip by verifying the signature using the public key.
-		if err := verify(k.Public(), digest, signature, hasher, hasher); err != nil {
+		// Check the key by creating a signature and verifying it.
+		if err := signAndVerify(k, k.Public()); err != nil {
 			t.Errorf("%v: %v", test.name, err)
 		}
-
 	}
 }
 
-func TestSignatureAlgorithm(t *testing.T) {
-	tests := []struct {
-		name   string
-		keyPEM string
-		want   sigpb.DigitallySigned_SignatureAlgorithm
-	}{
-		{
-			name:   "ECDSA",
-			keyPEM: ecdsaPublicKey,
-			want:   sigpb.DigitallySigned_ECDSA,
-		},
-		{
-			name:   "RSA",
-			keyPEM: rsaPublicKey,
-			want:   sigpb.DigitallySigned_RSA,
-		},
-		{
-			name:   "DSA",
-			keyPEM: dsaPublicKey,
-			want:   sigpb.DigitallySigned_ANONYMOUS,
-		},
-	}
-
-	for _, test := range tests {
-		key, err := NewFromPublicPEM(test.keyPEM)
-		if err != nil {
-			t.Errorf("%v: Failed to load key: %v", test.name, err)
-			continue
-		}
-
-		if got := SignatureAlgorithm(key); got != test.want {
-			t.Errorf("%v: SignatureAlgorithm(%v) = %v, want %v", test.name, key, got, test.want)
-		}
-	}
-}
-
-func TestGenerateKey(t *testing.T) {
+func TestNewFromSpec(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		keygen  *keyspb.Specification
@@ -256,10 +214,14 @@ func TestGenerateKey(t *testing.T) {
 			keygen:  &keyspb.Specification{},
 			wantErr: true,
 		},
+		{
+			name:    "Nil KeySpec",
+			wantErr: true,
+		},
 	} {
 		key, err := NewFromSpec(test.keygen)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: NewFromSpecification() = (_, %v), want err? %v", test.name, err, test.wantErr)
+			t.Errorf("%v: NewFromSpec() = (_, %v), want err? %v", test.name, err, test.wantErr)
 			continue
 		} else if gotErr {
 			continue
@@ -271,10 +233,10 @@ func TestGenerateKey(t *testing.T) {
 			case *ecdsa.PrivateKey:
 				wantCurve := curveFromParams(params.EcdsaParams)
 				if wantCurve.Params().Name != key.Params().Name {
-					t.Errorf("%v: NewFromSpecification() => ECDSA key on %v curve, want %v curve", test.name, key.Params().Name, wantCurve.Params().Name)
+					t.Errorf("%v: NewFromSpec() => ECDSA key on %v curve, want %v curve", test.name, key.Params().Name, wantCurve.Params().Name)
 				}
 			default:
-				t.Errorf("%v: NewFromSpecification() = (%T, nil), want *ecdsa.PrivateKey", test.name, key)
+				t.Errorf("%v: NewFromSpec() = (%T, nil), want *ecdsa.PrivateKey", test.name, key)
 			}
 		case *keyspb.Specification_RsaParams:
 			switch key := key.(type) {
@@ -285,11 +247,57 @@ func TestGenerateKey(t *testing.T) {
 				}
 
 				if got, want := key.N.BitLen(), wantBits; got != want {
-					t.Errorf("%v: NewFromSpecification() => %v-bit RSA key, want %v-bit", test.name, got, want)
+					t.Errorf("%v: NewFromSpec() => %v-bit RSA key, want %v-bit", test.name, got, want)
 				}
 			default:
-				t.Errorf("%v: NewFromSpecification() = (%T, nil), want *rsa.PrivateKey", test.name, key)
+				t.Errorf("%v: NewFromSpec() = (%T, nil), want *rsa.PrivateKey", test.name, key)
 			}
 		}
 	}
+}
+
+// signAndVerify exercises a signer by using it to generate a signature, and
+// then verifies that this signature is correct.
+func signAndVerify(signer crypto.Signer, pubKey crypto.PublicKey) error {
+	hasher := crypto.SHA256
+	digest := sha256.Sum256([]byte("test"))
+	signature, err := signer.Sign(rand.Reader, digest[:], hasher)
+	if err != nil {
+		return err
+	}
+
+	switch pubKey := pubKey.(type) {
+	case *ecdsa.PublicKey:
+		return verifyECDSA(pubKey, digest[:], signature)
+	case *rsa.PublicKey:
+		return verifyRSA(pubKey, digest[:], signature, hasher, hasher)
+	default:
+		return fmt.Errorf("unknown public key type: %T", pubKey)
+	}
+}
+
+func verifyECDSA(pubKey *ecdsa.PublicKey, digest, sig []byte) error {
+	var ecdsaSig struct {
+		R, S *big.Int
+	}
+
+	rest, err := asn1.Unmarshal(sig, &ecdsaSig)
+	if err != nil {
+		return err
+	}
+	if len(rest) != 0 {
+		return fmt.Errorf("ECDSA signature %v bytes longer than expected", len(rest))
+	}
+
+	if !ecdsa.Verify(pubKey, digest, ecdsaSig.R, ecdsaSig.S) {
+		return errors.New("ECDSA signature failed verification")
+	}
+	return nil
+}
+
+func verifyRSA(pubKey *rsa.PublicKey, digest, sig []byte, hasher crypto.Hash, opts crypto.SignerOpts) error {
+	if pssOpts, ok := opts.(*rsa.PSSOptions); ok {
+		return rsa.VerifyPSS(pubKey, hasher, digest, sig, pssOpts)
+	}
+	return rsa.VerifyPKCS1v15(pubKey, hasher, digest, sig)
 }

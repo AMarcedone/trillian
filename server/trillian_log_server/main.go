@@ -50,9 +50,9 @@ var (
 	maxUnsequencedRows = flag.Int("max_unsequenced_rows", mysqlq.DefaultMaxUnsequenced, "Max number of unsequenced rows before rate limiting kicks in")
 	quotaDryRun        = flag.Bool("quota_dry_run", false, "If true no requests are blocked due to lack of tokens")
 
-	pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+
+	signerFactory = keys.NewSignerFactory()
 )
 
 func main() {
@@ -87,15 +87,14 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	sf := &keys.DefaultSignerFactory{}
-	if *pkcs11ModulePath != "" {
-		sf.SetPKCS11Module(*pkcs11ModulePath)
-	}
+	signerFactory.AddHandler(keys.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(keys.PrivateKeyProtoHandler())
+	signerFactory.Generate = keys.PrivateKeyProtoGenerator
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		LogStorage:    mysql.NewLogStorage(db, mf),
-		SignerFactory: sf,
+		SignerFactory: signerFactory,
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: *maxUnsequencedRows},
 		MetricFactory: mf,
 	}

@@ -1,0 +1,55 @@
+// +build pkcs11
+
+// Copyright 2017 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package keys
+
+import (
+	"context"
+	"crypto"
+	"errors"
+	"fmt"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keyspb"
+	"github.com/letsencrypt/pkcs11key"
+)
+
+// Pkcs11ConfigProtoHandler returns the arguments to pass to SignerFactory.AddHandler() to enable
+// it to convert PKCS11Config protobuf messages into crypto.Signers.
+// This conversion is done by communicating with a PKCS#11 interface.
+func Pkcs11ConfigProtoHandler(modulePath *string) (proto.Message, ProtoHandler) {
+	return &keyspb.PKCS11Config{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+		if cfg, ok := pb.(*keyspb.PKCS11Config); ok {
+			return NewFromPKCS11Config(*modulePath, cfg)
+		}
+		return nil, fmt.Errorf("pkcs11: got %T, want *keyspb.PKCS11Config", pb)
+	}
+}
+
+// NewFromPKCS11Config returns a crypto.Signer that uses a PKCS#11 interface.
+func NewFromPKCS11Config(modulePath string, config *keyspb.PKCS11Config) (crypto.Signer, error) {
+	if modulePath == "" {
+		return nil, errors.New("pkcs11: No module path")
+	}
+
+	pubKeyPEM := config.GetPublicKey()
+	pubKey, err := NewFromPublicPEM(pubKeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("pkcs11: error loading public key from %q: %v", pubKeyPEM, err)
+	}
+
+	return pkcs11key.New(modulePath, config.GetTokenLabel(), config.GetPin(), pubKey)
+}

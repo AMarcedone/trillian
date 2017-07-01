@@ -79,11 +79,14 @@ func NewLogEnv(ctx context.Context, numSequencers int, testID string) (*LogEnv, 
 		return nil, err
 	}
 
+	sf := keys.NewSignerFactory()
+	sf.AddHandler(keys.PrivateKeyProtoHandler())
+
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		LogStorage:    mysql.NewLogStorage(db, nil),
 		QuotaManager:  quota.Noop(),
-		SignerFactory: &keys.DefaultSignerFactory{},
+		SignerFactory: sf,
 	}
 
 	ret, err := NewLogEnvWithRegistry(ctx, numSequencers, testID, registry)

@@ -33,23 +33,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"time"
+	"strings"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
-	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/crypto/sigpb"
-	"github.com/letsencrypt/pkcs11key"
 	"google.golang.org/grpc"
 )
 
@@ -64,35 +59,24 @@ var (
 	displayName        = flag.String("display_name", "", "Display name of the new tree")
 	description        = flag.String("description", "", "Description of the new tree")
 	maxRootDuration    = flag.Duration("max_root_duration", 0, "Interval after which a new signed root is produced despite no submissions; zero means never")
-
-	privateKeyFormat = flag.String("private_key_format", "PrivateKey", "Type of private key to be used (PrivateKey, PEMKeyFile, or PKCS11ConfigFile)")
-	pemKeyPath       = flag.String("pem_key_path", "", "Path to the private key PEM file")
-	pemKeyPassword   = flag.String("pem_key_password", "", "Password of the private key PEM file")
-	pkcs11ConfigPath = flag.String("pkcs11_config_path", "", "Path to the PKCS #11 key configuration file")
+	privateKeyFormat   = flag.String("private_key_format", "", "Type of private key to be used")
 
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
 )
 
-// createOpts contains all user-supplied options required to run the program.
-// It's meant to facilitate tests and focus flag reads to a single point.
-type createOpts struct {
-	addr                                                                                     string
-	treeState, treeType, hashStrategy, hashAlgorithm, sigAlgorithm, displayName, description string
-	maxRootDuration                                                                          time.Duration
-	privateKeyType, pemKeyPath, pemKeyPass, pkcs11ConfigPath                                 string
-}
+var keyHandlers = make(map[string]func() (proto.Message, error))
 
-func createTree(ctx context.Context, opts *createOpts) (*trillian.Tree, error) {
-	if opts.addr == "" {
+func createTree(ctx context.Context) (*trillian.Tree, error) {
+	if *adminServerAddr == "" {
 		return nil, errors.New("empty --admin_server, please provide the Admin server host:port")
 	}
 
-	req, err := newRequest(opts)
+	req, err := newRequest()
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := grpc.Dial(opts.addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(*adminServerAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -105,33 +89,33 @@ func createTree(ctx context.Context, opts *createOpts) (*trillian.Tree, error) {
 	return tree, nil
 }
 
-func newRequest(opts *createOpts) (*trillian.CreateTreeRequest, error) {
-	ts, ok := trillian.TreeState_value[opts.treeState]
+func newRequest() (*trillian.CreateTreeRequest, error) {
+	ts, ok := trillian.TreeState_value[*treeState]
 	if !ok {
-		return nil, fmt.Errorf("unknown TreeState: %v", opts.treeState)
+		return nil, fmt.Errorf("unknown TreeState: %v", *treeState)
 	}
 
-	tt, ok := trillian.TreeType_value[opts.treeType]
+	tt, ok := trillian.TreeType_value[*treeType]
 	if !ok {
-		return nil, fmt.Errorf("unknown TreeType: %v", opts.treeType)
+		return nil, fmt.Errorf("unknown TreeType: %v", *treeType)
 	}
 
-	hs, ok := trillian.HashStrategy_value[opts.hashStrategy]
+	hs, ok := trillian.HashStrategy_value[*hashStrategy]
 	if !ok {
-		return nil, fmt.Errorf("unknown HashStrategy: %v", opts.hashStrategy)
+		return nil, fmt.Errorf("unknown HashStrategy: %v", *hashStrategy)
 	}
 
-	ha, ok := sigpb.DigitallySigned_HashAlgorithm_value[opts.hashAlgorithm]
+	ha, ok := sigpb.DigitallySigned_HashAlgorithm_value[*hashAlgorithm]
 	if !ok {
-		return nil, fmt.Errorf("unknown HashAlgorithm: %v", opts.hashAlgorithm)
+		return nil, fmt.Errorf("unknown HashAlgorithm: %v", *hashAlgorithm)
 	}
 
-	sa, ok := sigpb.DigitallySigned_SignatureAlgorithm_value[opts.sigAlgorithm]
+	sa, ok := sigpb.DigitallySigned_SignatureAlgorithm_value[*signatureAlgorithm]
 	if !ok {
-		return nil, fmt.Errorf("unknown SignatureAlgorithm: %v", opts.sigAlgorithm)
+		return nil, fmt.Errorf("unknown SignatureAlgorithm: %v", *signatureAlgorithm)
 	}
 
-	pk, err := newPK(opts)
+	pk, err := newPK(*privateKeyFormat)
 	if err != nil {
 		return nil, err
 	}
@@ -142,84 +126,32 @@ func newRequest(opts *createOpts) (*trillian.CreateTreeRequest, error) {
 		HashStrategy:       trillian.HashStrategy(hs),
 		HashAlgorithm:      sigpb.DigitallySigned_HashAlgorithm(ha),
 		SignatureAlgorithm: sigpb.DigitallySigned_SignatureAlgorithm(sa),
-		DisplayName:        opts.displayName,
-		Description:        opts.description,
+		DisplayName:        *displayName,
+		Description:        *description,
 		PrivateKey:         pk,
-		MaxRootDuration:    ptypes.DurationProto(opts.maxRootDuration),
+		MaxRootDuration:    ptypes.DurationProto(*maxRootDuration),
 	}}
 	return ctr, nil
 }
 
-func newPK(opts *createOpts) (*any.Any, error) {
-	switch opts.privateKeyType {
-	case "PEMKeyFile":
-		if opts.pemKeyPath == "" {
-			return nil, errors.New("empty pem_key_path")
-		}
-		if opts.pemKeyPass == "" {
-			return nil, fmt.Errorf("empty password for PEM key file %q", opts.pemKeyPath)
-		}
-		pemKey := &keyspb.PEMKeyFile{
-			Path:     opts.pemKeyPath,
-			Password: opts.pemKeyPass,
-		}
-		return ptypes.MarshalAny(pemKey)
-	case "PrivateKey":
-		if opts.pemKeyPath == "" {
-			return nil, errors.New("empty pem_key_path")
-		}
-		pemSigner, err := keys.NewFromPrivatePEMFile(
-			opts.pemKeyPath, opts.pemKeyPass)
+func newPK(format string) (*any.Any, error) {
+	if handler, ok := keyHandlers[format]; ok {
+		pb, err := handler()
 		if err != nil {
 			return nil, err
 		}
-		der, err := keys.MarshalPrivateKey(pemSigner)
-		if err != nil {
-			return nil, err
-		}
-		return ptypes.MarshalAny(&keyspb.PrivateKey{Der: der})
-	case "PKCS11ConfigFile":
-		if opts.pkcs11ConfigPath == "" {
-			return nil, errors.New("empty PKCS11 config file path")
-		}
-		configBytes, err := ioutil.ReadFile(opts.pkcs11ConfigPath)
-		if err != nil {
-			return nil, err
-		}
-		var config pkcs11key.Config
-		if err = json.Unmarshal(configBytes, &config); err != nil {
-			return nil, err
-		}
-		pubKeyBytes, err := ioutil.ReadFile(config.PublicKeyPath)
-		if err != nil {
-			return nil, err
-		}
-		return ptypes.MarshalAny(&keyspb.PKCS11Config{
-			TokenLabel: config.TokenLabel,
-			Pin:        config.PIN,
-			PublicKey:  string(pubKeyBytes),
-		})
-	default:
-		return nil, fmt.Errorf("unknown private key type: %v", opts.privateKeyType)
+		return ptypes.MarshalAny(pb)
 	}
+
+	return nil, fmt.Errorf("private key format must be one of: %s", strings.Join(keyFormats(), ", "))
 }
 
-func newOptsFromFlags() *createOpts {
-	return &createOpts{
-		addr:             *adminServerAddr,
-		treeState:        *treeState,
-		treeType:         *treeType,
-		hashStrategy:     *hashStrategy,
-		hashAlgorithm:    *hashAlgorithm,
-		sigAlgorithm:     *signatureAlgorithm,
-		displayName:      *displayName,
-		description:      *description,
-		maxRootDuration:  *maxRootDuration,
-		privateKeyType:   *privateKeyFormat,
-		pemKeyPath:       *pemKeyPath,
-		pemKeyPass:       *pemKeyPassword,
-		pkcs11ConfigPath: *pkcs11ConfigPath,
+func keyFormats() []string {
+	formats := make([]string, 0, len(keyHandlers))
+	for format := range keyHandlers {
+		formats = append(formats, format)
 	}
+	return formats
 }
 
 func main() {
@@ -232,10 +164,9 @@ func main() {
 	}
 
 	ctx := context.Background()
-	tree, err := createTree(ctx, newOptsFromFlags())
+	tree, err := createTree(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create tree: %v\n", err)
-		os.Exit(1)
+		glog.Exitf("Failed to create tree: %v", err)
 	}
 
 	// DO NOT change the output format, scripts are meant to depend on it.

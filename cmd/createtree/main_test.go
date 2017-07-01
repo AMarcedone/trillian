@@ -16,25 +16,43 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"net"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/crypto/keyspb"
+	"github.com/google/trillian/cmd/flagsaver"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
-func marshalAny(p proto.Message) *any.Any {
+// defaultTree reflects all flag defaults with the addition of a valid private key.
+var defaultTree = &trillian.Tree{
+	TreeState:          trillian.TreeState_ACTIVE,
+	TreeType:           trillian.TreeType_LOG,
+	HashStrategy:       trillian.HashStrategy_RFC6962_SHA256,
+	HashAlgorithm:      sigpb.DigitallySigned_SHA256,
+	SignatureAlgorithm: sigpb.DigitallySigned_RSA,
+	PrivateKey:         func() *any.Any { return mustMarshalAny(&empty.Empty{}) }(),
+	MaxRootDuration:    ptypes.DurationProto(0 * time.Millisecond),
+}
+
+type testCase struct {
+	desc      string
+	setFlags  func()
+	createErr error
+	wantErr   bool
+	wantTree  *trillian.Tree
+}
+
+func mustMarshalAny(p proto.Message) *any.Any {
 	anyKey, err := ptypes.MarshalAny(p)
 	if err != nil {
 		panic(err)
@@ -43,34 +61,58 @@ func marshalAny(p proto.Message) *any.Any {
 }
 
 func TestRun(t *testing.T) {
-	err := os.Chdir("../..")
-	if err != nil {
-		t.Fatalf("Unable to change working directory to ../..: %s", err)
-	}
+	nonDefaultTree := *defaultTree
+	nonDefaultTree.TreeType = trillian.TreeType_MAP
+	nonDefaultTree.SignatureAlgorithm = sigpb.DigitallySigned_ECDSA
+	nonDefaultTree.DisplayName = "Llamas Map"
+	nonDefaultTree.Description = "For all your digital llama needs!"
 
-	pemPath, pemPassword := "testdata/log-rpc-server.privkey.pem", "towel"
-	pemSigner, err := keys.NewFromPrivatePEMFile(pemPath, pemPassword)
-	if err != nil {
-		t.Fatalf("NewFromPrivatePEM(): %v", err)
-	}
-	pemDer, err := keys.MarshalPrivateKey(pemSigner)
-	if err != nil {
-		t.Fatalf("MarshalPrivateKey(): %v", err)
-	}
-	anyPrivKey, err := ptypes.MarshalAny(&keyspb.PrivateKey{Der: pemDer})
-	if err != nil {
-		t.Fatalf("MarshalAny(%v): %v", pemDer, err)
-	}
+	runTest(t, []*testCase{
+		{
+			desc:     "validOpts",
+			wantTree: defaultTree,
+		},
+		{
+			desc: "nonDefaultOpts",
+			setFlags: func() {
+				*treeType = nonDefaultTree.TreeType.String()
+				*signatureAlgorithm = nonDefaultTree.SignatureAlgorithm.String()
+				*displayName = nonDefaultTree.DisplayName
+				*description = nonDefaultTree.Description
+			},
+			wantTree: &nonDefaultTree,
+		},
+		{
+			desc:     "defaultOptsOnly",
+			setFlags: resetFlags,
+			wantErr:  true,
+		},
+		{
+			desc:     "emptyAddr",
+			setFlags: func() { *adminServerAddr = "" },
+			wantErr:  true,
+		},
+		{
+			desc:     "invalidEnumOpts",
+			setFlags: func() { *treeType = "LLAMA!" },
+			wantErr:  true,
+		},
+		{
+			desc:     "invalidKeyTypeOpts",
+			setFlags: func() { *privateKeyFormat = "LLAMA!!" },
+			wantErr:  true,
+		},
+		{
+			desc:      "createErr",
+			createErr: errors.New("create tree failed"),
+			wantErr:   true,
+		},
+	})
+}
 
-	// defaultTree reflects all flag defaults with the addition of a valid pk
-	defaultTree := &trillian.Tree{
-		TreeState:          trillian.TreeState_ACTIVE,
-		TreeType:           trillian.TreeType_LOG,
-		HashStrategy:       trillian.HashStrategy_RFC6962_SHA256,
-		HashAlgorithm:      sigpb.DigitallySigned_SHA256,
-		SignatureAlgorithm: sigpb.DigitallySigned_RSA,
-		PrivateKey:         anyPrivKey,
-		MaxRootDuration:    ptypes.DurationProto(0 * time.Millisecond),
+func runTest(t *testing.T, tests []*testCase) {
+	keyHandlers["test"] = func() (proto.Message, error) {
+		return &empty.Empty{}, nil
 	}
 
 	server, lis, stopFn, err := startFakeServer()
@@ -79,109 +121,39 @@ func TestRun(t *testing.T) {
 	}
 	defer stopFn()
 
-	validOpts := newOptsFromFlags()
-	validOpts.addr = lis.Addr().String()
-	validOpts.pemKeyPath = pemPath
-	validOpts.pemKeyPass = pemPassword
-
-	nonDefaultTree := *defaultTree
-	nonDefaultTree.TreeType = trillian.TreeType_MAP
-	nonDefaultTree.SignatureAlgorithm = sigpb.DigitallySigned_ECDSA
-	nonDefaultTree.DisplayName = "Llamas Map"
-	nonDefaultTree.Description = "For all your digital llama needs!"
-
-	nonDefaultOpts := *validOpts
-	nonDefaultOpts.treeType = nonDefaultTree.TreeType.String()
-	nonDefaultOpts.sigAlgorithm = nonDefaultTree.SignatureAlgorithm.String()
-	nonDefaultOpts.displayName = nonDefaultTree.DisplayName
-	nonDefaultOpts.description = nonDefaultTree.Description
-
-	emptyAddr := *validOpts
-	emptyAddr.addr = ""
-
-	invalidEnumOpts := *validOpts
-	invalidEnumOpts.treeType = "LLAMA!"
-
-	invalidKeyTypeOpts := *validOpts
-	invalidKeyTypeOpts.privateKeyType = "LLAMA!!"
-
-	emptyPEMPath := *validOpts
-	emptyPEMPath.pemKeyPath = ""
-
-	emptyPEMPass := *validOpts
-	emptyPEMPass.pemKeyPass = ""
-
-	pemKeyOpts := *validOpts
-	pemKeyOpts.privateKeyType = "PEMKeyFile"
-	pemKeyTree := *defaultTree
-	pemKeyTree.PrivateKey, err = ptypes.MarshalAny(&keyspb.PEMKeyFile{
-		Path:     pemPath,
-		Password: pemPassword,
-	})
-	if err != nil {
-		t.Fatalf("MarshalAny(PEMKeyFile): %v", err)
-	}
-
-	pkcs11Opts := *validOpts
-	pkcs11Opts.privateKeyType = "PKCS11ConfigFile"
-	pkcs11Opts.pkcs11ConfigPath = "testdata/pkcs11-conf.json"
-	pkcs11Tree := *defaultTree
-	pkcs11Tree.PrivateKey, err = ptypes.MarshalAny(&keyspb.PKCS11Config{
-		TokenLabel: "log",
-		Pin:        "1234",
-		PublicKey: `-----BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC7/tWwqUXZJaNfnpvnqiaeNMkn
-hKusCsyAidrHxvuL+t54XFCHJwsB3wIlQZ4mMwb8mC/KRYhCqECBEoCAf/b0m3j/
-ASuEPLyYOrz/aEs3wP02IZQLGmihmjMk7T/ouNCuX7y1fTjX3GeVQ06U/EePwZFC
-xToc6NWBri0N3VVsswIDAQAB
------END PUBLIC KEY-----
-`,
-	})
-	if err != nil {
-		t.Fatalf("MarshalAny(PKCS11Config): %v", err)
-	}
-
-	emptyPKCS11Path := *validOpts
-	emptyPKCS11Path.privateKeyType = "PKCS11ConfigFile"
-
-	tests := []struct {
-		desc      string
-		opts      *createOpts
-		createErr error
-		wantErr   bool
-		wantTree  *trillian.Tree
-	}{
-		{desc: "validOpts", opts: validOpts, wantTree: defaultTree},
-		{desc: "nonDefaultOpts", opts: &nonDefaultOpts, wantTree: &nonDefaultTree},
-		{desc: "defaultOptsOnly", opts: newOptsFromFlags(), wantErr: true}, // No mandatory opts provided
-		{desc: "emptyAddr", opts: &emptyAddr, wantErr: true},
-		{desc: "invalidEnumOpts", opts: &invalidEnumOpts, wantErr: true},
-		{desc: "invalidKeyTypeOpts", opts: &invalidKeyTypeOpts, wantErr: true},
-		{desc: "emptyPEMPath", opts: &emptyPEMPath, wantErr: true},
-		{desc: "emptyPEMPass", opts: &emptyPEMPass, wantErr: true},
-		{desc: "PEMKeyFile", opts: &pemKeyOpts, wantErr: false, wantTree: &pemKeyTree},
-		{desc: "createErr", opts: validOpts, createErr: errors.New("create tree failed"), wantErr: true},
-		{desc: "PKCS11Config", opts: &pkcs11Opts, wantErr: false, wantTree: &pkcs11Tree},
-		{desc: "emptyPKCS11Path", opts: &emptyPKCS11Path, wantErr: true},
-	}
-
 	ctx := context.Background()
 	for _, test := range tests {
 		server.err = test.createErr
 
-		tree, err := createTree(ctx, test.opts)
-		switch hasErr := err != nil; {
-		case hasErr != test.wantErr:
-			t.Errorf("%v: createTree() returned err = '%v', wantErr = %v", test.desc, err, test.wantErr)
-			continue
-		case hasErr:
-			continue
-		}
+		// Wrap in a func so that defer can be used to cleanup after each iteration.
+		func() {
+			defer flagsaver.Save().Restore()
+			*adminServerAddr = lis.Addr().String()
+			*privateKeyFormat = "test"
+			if test.setFlags != nil {
+				test.setFlags()
+			}
 
-		if diff := pretty.Compare(tree, test.wantTree); diff != "" {
-			t.Errorf("%v: post-createTree diff:\n%v", test.desc, diff)
-		}
+			tree, err := createTree(ctx)
+			switch hasErr := err != nil; {
+			case hasErr != test.wantErr:
+				t.Errorf("%v: createTree() returned err = '%v', wantErr = %v", test.desc, err, test.wantErr)
+				return
+			case hasErr:
+				return
+			}
+
+			if diff := pretty.Compare(tree, test.wantTree); diff != "" {
+				t.Errorf("%v: post-createTree diff:\n%v", test.desc, diff)
+			}
+		}()
 	}
+}
+
+func resetFlags() {
+	flag.Visit(func(f *flag.Flag) {
+		f.Value.Set(f.DefValue)
+	})
 }
 
 // fakeAdminServer that implements CreateTree. If err is nil, the CreateTree

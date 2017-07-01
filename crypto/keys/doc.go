@@ -12,6 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package keys provides access to public and private keys for signing and verification of signatures.
 package keys
-
-//go:generate mockgen -self_package github.com/google/trillian/crypto/keys -package keys -destination mock_keys.go github.com/google/trillian/crypto/keys SignerFactory

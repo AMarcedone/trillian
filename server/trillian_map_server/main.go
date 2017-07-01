@@ -46,6 +46,8 @@ var (
 	quotaDryRun        = flag.Bool("quota_dry_run", false, "If true no requests are blocked due to lack of tokens")
 
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+
+	signerFactory = keys.NewSignerFactory()
 )
 
 func main() {
@@ -63,9 +65,13 @@ func main() {
 	}
 	// No defer: database ownership is delegated to server.Main
 
+	signerFactory.AddHandler(keys.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(keys.PrivateKeyProtoHandler())
+	signerFactory.Generate = keys.PrivateKeyProtoGenerator
+
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
-		SignerFactory: &keys.DefaultSignerFactory{},
+		SignerFactory: signerFactory,
 		MapStorage:    mysql.NewMapStorage(db),
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: *maxUnsequencedRows},
 		MetricFactory: prometheus.MetricFactory{},

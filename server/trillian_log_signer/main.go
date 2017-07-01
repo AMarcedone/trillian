@@ -60,9 +60,9 @@ var (
 	masterHoldInterval  = flag.Duration("master_hold_interval", 60*time.Second, "Minimum interval to hold mastership for")
 	resignOdds          = flag.Int("resign_odds", 10, "Chance of resigning mastership after each check, the N in 1-in-N")
 
-	pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+
+	signerFactory = keys.NewSignerFactory()
 )
 
 func main() {
@@ -99,15 +99,13 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	sf := &keys.DefaultSignerFactory{}
-	if *pkcs11ModulePath != "" {
-		sf.SetPKCS11Module(*pkcs11ModulePath)
-	}
+	signerFactory.AddHandler(keys.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(keys.PrivateKeyProtoHandler())
 
 	registry := extension.Registry{
 		AdminStorage:    mysql.NewAdminStorage(db),
 		LogStorage:      mysql.NewLogStorage(db, mf),
-		SignerFactory:   sf,
+		SignerFactory:   signerFactory,
 		ElectionFactory: electionFactory,
 		QuotaManager:    quota.Noop(),
 		MetricFactory:   mf,
