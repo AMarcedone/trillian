@@ -62,52 +62,52 @@ NHcCAQEEIHG5m/q2sUSa4P8pRZgYt3K0ESFSKp1qp15VjJhpLle4oAoGCCqGSM49AwEHoUQDQgAEvuyn
 
 func TestLoadPrivateKeyAndSign(t *testing.T) {
 	tests := []struct {
-		name        string
+		desc        string
 		keyPEM      string
 		keyPath     string
 		keyPass     string
 		wantLoadErr bool
 	}{
 		{
-			name:    "ECDSA with password",
+			desc:    "ECDSA with password",
 			keyPEM:  testonly.DemoPrivateKey,
 			keyPass: testonly.DemoPrivateKeyPass,
 		},
 		{
-			name:    "ECDSA from file with password",
+			desc:    "ECDSA from file with password",
 			keyPath: "../../testdata/log-rpc-server.privkey.pem",
 			keyPass: "towel",
 		},
 		{
-			name:        "Non-existent file",
+			desc:        "Non-existent file",
 			keyPath:     "non-existent.pem",
 			wantLoadErr: true,
 		},
 		{
-			name:        "ECDSA with wrong password",
+			desc:        "ECDSA with wrong password",
 			keyPEM:      testonly.DemoPrivateKey,
 			keyPass:     testonly.DemoPrivateKeyPass + "foo",
 			wantLoadErr: true,
 		},
 		{
-			name:   "ECDSA",
+			desc:   "ECDSA",
 			keyPEM: ecdsaPrivateKey,
 		},
 		{
-			name:   "RSA",
+			desc:   "RSA",
 			keyPEM: rsaPrivateKey,
 		},
 		{
-			name:   "ECDSA with leading junk",
+			desc:   "ECDSA with leading junk",
 			keyPEM: "foobar\n" + ecdsaPrivateKey,
 		},
 		{
-			name:        "ECDSA with trailing junk",
+			desc:        "ECDSA with trailing junk",
 			keyPEM:      ecdsaPrivateKey + "\nfoobar",
 			wantLoadErr: true,
 		},
 		{
-			name:        "Corrupt ECDSA",
+			desc:        "Corrupt ECDSA",
 			keyPEM:      corruptEcdsaPrivateKey,
 			wantLoadErr: true,
 		},
@@ -121,7 +121,7 @@ func TestLoadPrivateKeyAndSign(t *testing.T) {
 			k, err = NewFromPrivatePEM(test.keyPEM, test.keyPass)
 			switch gotErr := err != nil; {
 			case gotErr != test.wantLoadErr:
-				t.Errorf("%v: NewFromPrivatePEM() = (%v, %v), want err? %v", test.name, k, err, test.wantLoadErr)
+				t.Errorf("%v: NewFromPrivatePEM() = (%v, %v), want err? %v", test.desc, k, err, test.wantLoadErr)
 				continue
 			case gotErr:
 				continue
@@ -131,38 +131,38 @@ func TestLoadPrivateKeyAndSign(t *testing.T) {
 			k, err = NewFromPrivatePEMFile(test.keyPath, test.keyPass)
 			switch gotErr := err != nil; {
 			case gotErr != test.wantLoadErr:
-				t.Errorf("%v: NewFromPrivatePEMFile() = (%v, %v), want err? %v", test.name, k, err, test.wantLoadErr)
+				t.Errorf("%v: NewFromPrivatePEMFile() = (%v, %v), want err? %v", test.desc, k, err, test.wantLoadErr)
 				continue
 			case gotErr:
 				continue
 			}
 
 		default:
-			t.Errorf("%v: No PEM or file path set in test definition", test.name)
+			t.Errorf("%v: No PEM or file path set in test definition", test.desc)
 			continue
 		}
 
 		// Check the key by creating a signature and verifying it.
 		if err := signAndVerify(k, k.Public()); err != nil {
-			t.Errorf("%v: %v", test.name, err)
+			t.Errorf("%v: %v", test.desc, err)
 		}
 	}
 }
 
 func TestNewFromSpec(t *testing.T) {
 	for _, test := range []struct {
-		name    string
+		desc    string
 		keygen  *keyspb.Specification
 		wantErr bool
 	}{
 		{
-			name: "ECDSA with default params",
+			desc: "ECDSA with default params",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_EcdsaParams{},
 			},
 		},
 		{
-			name: "ECDSA with explicit params",
+			desc: "ECDSA with explicit params",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_EcdsaParams{
 					EcdsaParams: &keyspb.Specification_ECDSA{
@@ -172,13 +172,13 @@ func TestNewFromSpec(t *testing.T) {
 			},
 		},
 		{
-			name: "RSA with default params",
+			desc: "RSA with default params",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{},
 			},
 		},
 		{
-			name: "RSA with explicit params",
+			desc: "RSA with explicit params",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
@@ -188,7 +188,7 @@ func TestNewFromSpec(t *testing.T) {
 			},
 		},
 		{
-			name: "RSA with negative key size",
+			desc: "RSA with negative key size",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
@@ -199,7 +199,7 @@ func TestNewFromSpec(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "RSA with insufficient key size",
+			desc: "RSA with insufficient key size",
 			keygen: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
@@ -210,18 +210,18 @@ func TestNewFromSpec(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "No params",
+			desc:    "No params",
 			keygen:  &keyspb.Specification{},
 			wantErr: true,
 		},
 		{
-			name:    "Nil KeySpec",
+			desc:    "Nil KeySpec",
 			wantErr: true,
 		},
 	} {
 		key, err := NewFromSpec(test.keygen)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: NewFromSpec() = (_, %v), want err? %v", test.name, err, test.wantErr)
+			t.Errorf("%v: NewFromSpec() = (_, %v), want err? %v", test.desc, err, test.wantErr)
 			continue
 		} else if gotErr {
 			continue
@@ -233,10 +233,10 @@ func TestNewFromSpec(t *testing.T) {
 			case *ecdsa.PrivateKey:
 				wantCurve := curveFromParams(params.EcdsaParams)
 				if wantCurve.Params().Name != key.Params().Name {
-					t.Errorf("%v: NewFromSpec() => ECDSA key on %v curve, want %v curve", test.name, key.Params().Name, wantCurve.Params().Name)
+					t.Errorf("%v: NewFromSpec() => ECDSA key on %v curve, want %v curve", test.desc, key.Params().Name, wantCurve.Params().Name)
 				}
 			default:
-				t.Errorf("%v: NewFromSpec() = (%T, nil), want *ecdsa.PrivateKey", test.name, key)
+				t.Errorf("%v: NewFromSpec() = (%T, nil), want *ecdsa.PrivateKey", test.desc, key)
 			}
 		case *keyspb.Specification_RsaParams:
 			switch key := key.(type) {
@@ -247,10 +247,10 @@ func TestNewFromSpec(t *testing.T) {
 				}
 
 				if got, want := key.N.BitLen(), wantBits; got != want {
-					t.Errorf("%v: NewFromSpec() => %v-bit RSA key, want %v-bit", test.name, got, want)
+					t.Errorf("%v: NewFromSpec() => %v-bit RSA key, want %v-bit", test.desc, got, want)
 				}
 			default:
-				t.Errorf("%v: NewFromSpec() = (%T, nil), want *rsa.PrivateKey", test.name, key)
+				t.Errorf("%v: NewFromSpec() = (%T, nil), want *rsa.PrivateKey", test.desc, key)
 			}
 		}
 	}

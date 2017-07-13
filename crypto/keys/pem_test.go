@@ -27,26 +27,26 @@ func TestPEMKeyFileProtoHandler(t *testing.T) {
 	sf.AddHandler(&keyspb.PEMKeyFile{}, NewFromPEMKeyFileProto)
 
 	for _, test := range []struct {
-		name     string
+		desc     string
 		keyProto proto.Message
 		wantErr  bool
 	}{
 		{
-			name: "PEMKeyFile",
+			desc: "PEMKeyFile",
 			keyProto: &keyspb.PEMKeyFile{
 				Path:     "../../testdata/log-rpc-server.privkey.pem",
 				Password: "towel",
 			},
 		},
 		{
-			name: "PemKeyFile with non-existent file",
+			desc: "PemKeyFile with non-existent file",
 			keyProto: &keyspb.PEMKeyFile{
 				Path: "non-existent.pem",
 			},
 			wantErr: true,
 		},
 		{
-			name: "PemKeyFile with wrong password",
+			desc: "PemKeyFile with wrong password",
 			keyProto: &keyspb.PEMKeyFile{
 				Path:     "../../testdata/log-rpc-server.privkey.pem",
 				Password: "wrong-password",
@@ -54,7 +54,7 @@ func TestPEMKeyFileProtoHandler(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "PemKeyFile with missing password",
+			desc: "PemKeyFile with missing password",
 			keyProto: &keyspb.PEMKeyFile{
 				Path: "../../testdata/log-rpc-server.privkey.pem",
 			},
@@ -63,7 +63,7 @@ func TestPEMKeyFileProtoHandler(t *testing.T) {
 	} {
 		signer, err := sf.NewSigner(context.Background(), test.keyProto)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.name, test.keyProto, err)
+			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
 			continue
 		} else if gotErr {
 			continue
@@ -71,7 +71,7 @@ func TestPEMKeyFileProtoHandler(t *testing.T) {
 
 		// Check that the returned signer can produce signatures successfully.
 		if err := signAndVerify(signer, signer.Public()); err != nil {
-			t.Errorf("%v: signAndVerify(%#v) = %#v, want nil", test.name, signer, err)
+			t.Errorf("%v: signAndVerify(%#v) = %#v, want nil", test.desc, signer, err)
 		}
 	}
 }

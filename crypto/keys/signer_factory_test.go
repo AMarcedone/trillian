@@ -38,29 +38,29 @@ func TestNewSigner(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		name     string
+		desc     string
 		keyProto proto.Message
 		handler  ProtoHandler
 		wantErr  bool
 	}{
 		{
-			name:     "KeyProto with handler",
+			desc:     "KeyProto with handler",
 			keyProto: &empty.Empty{},
 			handler:  fakeHandler(wantSigner, nil),
 		},
 		{
-			name:     "Invalid KeyProto with handler",
+			desc:     "Invalid KeyProto with handler",
 			keyProto: &empty.Empty{},
 			handler:  fakeHandler(nil, errors.New("invalid KeyProto")),
 			wantErr:  true,
 		},
 		{
-			name:     "KeyProto with no handler",
+			desc:     "KeyProto with no handler",
 			keyProto: &empty.Empty{},
 			wantErr:  true,
 		},
 		{
-			name:    "Nil KeyProto",
+			desc:    "Nil KeyProto",
 			wantErr: true,
 		},
 	} {
@@ -72,9 +72,9 @@ func TestNewSigner(t *testing.T) {
 		gotSigner, err := sf.NewSigner(context.Background(), test.keyProto)
 		switch gotErr := err != nil; {
 		case gotErr != test.wantErr:
-			t.Errorf("%v: NewSigner() = (_, %q), want err? %v", test.name, err, test.wantErr)
+			t.Errorf("%v: NewSigner() = (_, %q), want err? %v", test.desc, err, test.wantErr)
 		case !gotErr && gotSigner != wantSigner:
-			t.Errorf("%v: NewSigner() = (%#v, _), want (%#v, _)", test.name, gotSigner, wantSigner)
+			t.Errorf("%v: NewSigner() = (%#v, _), want (%#v, _)", test.desc, gotSigner, wantSigner)
 		}
 	}
 }

@@ -34,32 +34,32 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	sf.AddHandler(&keyspb.PrivateKey{}, NewFromPrivateKeyProto)
 
 	for _, test := range []struct {
-		name     string
+		desc     string
 		keyProto proto.Message
 		wantErr  bool
 	}{
 		{
-			name: "PrivateKey",
+			desc: "PrivateKey",
 			keyProto: &keyspb.PrivateKey{
 				Der: keyDER,
 			},
 		},
 		{
-			name: "PrivateKey with invalid DER",
+			desc: "PrivateKey with invalid DER",
 			keyProto: &keyspb.PrivateKey{
 				Der: []byte("foobar"),
 			},
 			wantErr: true,
 		},
 		{
-			name:     "PrivateKey with missing DER",
+			desc:     "PrivateKey with missing DER",
 			keyProto: &keyspb.PrivateKey{},
 			wantErr:  true,
 		},
 	} {
 		signer, err := sf.NewSigner(context.Background(), test.keyProto)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.name, test.keyProto, err)
+			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
 			continue
 		} else if gotErr {
 			continue
@@ -67,7 +67,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 
 		// Check that the returned signer can produce signatures successfully.
 		if err := signAndVerify(signer, signer.Public()); err != nil {
-			t.Errorf("%v: signAndVerify(%#v) = %#v, want nil", test.name, signer, err)
+			t.Errorf("%v: signAndVerify(%#v) = %#v, want nil", test.desc, signer, err)
 		}
 	}
 }
