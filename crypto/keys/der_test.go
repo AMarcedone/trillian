@@ -33,6 +33,8 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	sf := NewSignerFactory()
 	sf.AddHandler(&keyspb.PrivateKey{}, NewFromPrivateKeyProto)
 
+	ctx := context.Background()
+
 	for _, test := range []struct {
 		desc     string
 		keyProto proto.Message
@@ -57,7 +59,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 			wantErr:  true,
 		},
 	} {
-		signer, err := sf.NewSigner(context.Background(), test.keyProto)
+		signer, err := sf.NewSigner(ctx, test.keyProto)
 		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
 			continue

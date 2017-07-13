@@ -37,6 +37,8 @@ func TestNewSigner(t *testing.T) {
 		t.Fatalf("Error unmarshaling test private key: %v", err)
 	}
 
+	ctx := context.Background()
+
 	for _, test := range []struct {
 		desc     string
 		keyProto proto.Message
@@ -69,7 +71,7 @@ func TestNewSigner(t *testing.T) {
 			sf.AddHandler(test.keyProto, test.handler)
 		}
 
-		gotSigner, err := sf.NewSigner(context.Background(), test.keyProto)
+		gotSigner, err := sf.NewSigner(ctx, test.keyProto)
 		switch gotErr := err != nil; {
 		case gotErr != test.wantErr:
 			t.Errorf("%v: NewSigner() = (_, %q), want err? %v", test.desc, err, test.wantErr)
