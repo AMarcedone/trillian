@@ -143,8 +143,9 @@ func runTest(t *testing.T, tests []*testCase) {
 				return
 			}
 
-			if diff := pretty.Compare(tree, test.wantTree); diff != "" {
-				t.Errorf("%v: post-createTree diff:\n%v", test.desc, diff)
+			if !proto.Equal(tree, test.wantTree) {
+				diff := pretty.Compare(tree, test.wantTree)
+				t.Errorf("%v: post-createTree diff (-got +want):\n%v", test.desc, diff)
 			}
 		}()
 	}
