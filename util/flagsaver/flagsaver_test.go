@@ -32,33 +32,59 @@ var (
 // Only a subset of the possible flag types are currently tested.
 func TestRestore(t *testing.T) {
 	tests := []struct {
-		// Test name
-		name string
-		// Name of flag to save and restore.
+		desc string
+		// flag is the name of the flag to save and restore.
 		flag string
-		// The value the flag should have when saved. If empty, this indicates the flag should have its default value.
+		// oldValue is the value the flag should have when saved. If empty, this indicates the flag should have its default value.
 		oldValue string
-		// The value the flag should have just before being restored to oldValue.
+		// newValue ist he value the flag should have just before being restored to oldValue.
 		newValue string
 	}{
-		{"RestoreDefaultIntValue", "int_flag", "", "666"},
-		{"RestoreDefaultStrValue", "str_flag", "", "baz"},
-		{"RestoreDefaultDurationValue", "duration_flag", "", "1m0s"},
-		{"RestoreSetIntValue", "int_flag", "555", "666"},
-		{"RestoreSetStrValue", "str_flag", "bar", "baz"},
-		{"RestoreSetDurationValue", "duration_flag", "10s", "1m0s"},
+		{
+			desc:     "RestoreDefaultIntValue",
+			flag:     "int_flag",
+			newValue: "666",
+		},
+		{
+			desc:     "RestoreDefaultStrValue",
+			flag:     "str_flag",
+			newValue: "baz",
+		},
+		{
+			desc:     "RestoreDefaultDurationValue",
+			flag:     "duration_flag",
+			newValue: "1m0s",
+		},
+		{
+			desc:     "RestoreSetIntValue",
+			flag:     "int_flag",
+			oldValue: "555",
+			newValue: "666",
+		},
+		{
+			desc:     "RestoreSetStrValue",
+			flag:     "str_flag",
+			oldValue: "bar",
+			newValue: "baz",
+		},
+		{
+			desc:     "RestoreSetDurationValue",
+			flag:     "duration_flag",
+			oldValue: "10s",
+			newValue: "1m0s",
+		},
 	}
 
 	for _, test := range tests {
 		f := flag.Lookup(test.flag)
 		if f == nil {
-			t.Errorf("%s: flag.Lookup(%q) = nil, want not nil", test.name, test.flag)
+			t.Errorf("%v: flag.Lookup(%q) = nil, want not nil", test.desc, test.flag)
 			continue
 		}
 
 		if test.oldValue != "" {
 			if err := flag.Set(test.flag, test.oldValue); err != nil {
-				t.Errorf("%s: flag.Set(%q, %q) = error(%v), want nil", test.name, test.flag, test.oldValue, err)
+				t.Errorf("%v: flag.Set(%q, %q) = %q, want nil", test.desc, test.flag, test.oldValue, err)
 				continue
 			}
 		} else {
@@ -70,12 +96,12 @@ func TestRestore(t *testing.T) {
 			defer Save().Restore()
 			flag.Set(test.flag, test.newValue)
 			if gotValue := f.Value.String(); gotValue != test.newValue {
-				t.Errorf("%s: flag.Lookup(%q).Value.String() = %q, want %q", test.name, test.flag, gotValue, test.newValue)
+				t.Errorf("%v: flag.Lookup(%q).Value.String() = %q, want %q", test.desc, test.flag, gotValue, test.newValue)
 			}
 		}()
 
 		if gotValue := f.Value.String(); gotValue != test.oldValue {
-			t.Errorf("%s: flag.Lookup(%q).Value.String() = %q, want %q", test.name, test.flag, gotValue, test.oldValue)
+			t.Errorf("%v: flag.Lookup(%q).Value.String() = %q, want %q", test.desc, test.flag, gotValue, test.oldValue)
 		}
 	}
 }
