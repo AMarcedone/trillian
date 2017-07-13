@@ -27,11 +27,11 @@ import (
 	"github.com/letsencrypt/pkcs11key"
 )
 
-// Pkcs11ConfigProtoHandler returns the arguments to pass to SignerFactory.AddHandler() to enable
-// it to convert PKCS11Config protobuf messages into crypto.Signers.
-// This conversion is done by communicating with a PKCS#11 interface.
-func Pkcs11ConfigProtoHandler(modulePath *string) (proto.Message, ProtoHandler) {
-	return &keyspb.PKCS11Config{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+// Pkcs11ConfigProtoHandler returns a ProtoHandler configured to use the specified PKCS#11 modulePath.
+// This ProtoHandler will retrieve keys as specified by PKCS11Config proto messages.
+// It can be passed to SignerFactory.AddHandler().
+func Pkcs11ConfigProtoHandler(modulePath *string) ProtoHandler {
+	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
 		if cfg, ok := pb.(*keyspb.PKCS11Config); ok {
 			return NewFromPKCS11Config(*modulePath, cfg)
 		}

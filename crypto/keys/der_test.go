@@ -31,7 +31,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	}
 
 	sf := NewSignerFactory()
-	sf.AddHandler(PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, NewFromPrivateKeyProto)
 
 	for _, test := range []struct {
 		name     string

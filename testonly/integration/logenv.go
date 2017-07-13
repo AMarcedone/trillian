@@ -80,7 +80,7 @@ func NewLogEnv(ctx context.Context, numSequencers int, testID string) (*LogEnv, 
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(keys.PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

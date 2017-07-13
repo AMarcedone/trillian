@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/quota"
 	"github.com/google/trillian/server"
@@ -52,7 +53,7 @@ func NewMapEnv(ctx context.Context, testID string) (*MapEnv, error) {
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(keys.PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

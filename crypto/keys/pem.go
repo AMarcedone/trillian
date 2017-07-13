@@ -27,16 +27,13 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-// PEMKeyFileProtoHandler returns the arguments to pass to SignerFactory.AddHandler() to enable
-// it to convert PEMKeyFile protobuf messages into crypto.Signers.
-// This conversion is done by reading a key from the file specified in the PEMKeyFile message.
-func PEMKeyFileProtoHandler() (proto.Message, ProtoHandler) {
-	return &keyspb.PEMKeyFile{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
-		if f, ok := pb.(*keyspb.PEMKeyFile); ok {
-			return NewFromPrivatePEMFile(f.GetPath(), f.GetPassword())
-		}
-		return nil, fmt.Errorf("pemfile: got %T, want *keyspb.PEMKeyFile", pb)
+// NewFromPEMKeyFileProto takes a PEMKeyFile protobuf message and loads the private key it specifies.
+// It can be used as a ProtoHandler and passed to SignerFactory.AddHandler().
+func NewFromPEMKeyFileProto(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+	if f, ok := pb.(*keyspb.PEMKeyFile); ok {
+		return NewFromPrivatePEMFile(f.GetPath(), f.GetPassword())
 	}
+	return nil, fmt.Errorf("pemfile: got %T, want *keyspb.PEMKeyFile", pb)
 }
 
 // NewFromPrivatePEMFile reads a PEM-encoded private key from a file.

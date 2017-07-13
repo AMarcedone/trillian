@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/quota"
 	"github.com/google/trillian/storage/memory"
@@ -110,7 +111,7 @@ func TestInProcessLogIntegrationDuplicateLeaves(t *testing.T) {
 	ms := memory.NewLogStorage(nil)
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(keys.PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
 
 	reggie := extension.Registry{
 		AdminStorage:  memory.NewAdminStorage(ms),

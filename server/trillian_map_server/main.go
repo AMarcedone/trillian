@@ -26,6 +26,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
@@ -65,9 +66,9 @@ func main() {
 	}
 	// No defer: database ownership is delegated to server.Main
 
-	signerFactory.AddHandler(keys.PEMKeyFileProtoHandler())
-	signerFactory.AddHandler(keys.PrivateKeyProtoHandler())
-	signerFactory.Generate = keys.PrivateKeyProtoGenerator
+	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, keys.NewFromPEMKeyFileProto)
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
+	signerFactory.Generate = keys.NewPrivateKeyProtoFromSpec
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

@@ -16,6 +16,7 @@ package integration
 
 import (
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	mysqlq "github.com/google/trillian/quota/mysql"
 	"github.com/google/trillian/storage/mysql"
@@ -30,7 +31,7 @@ func NewRegistryForTests(testID string) (extension.Registry, error) {
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(keys.PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
 
 	return extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

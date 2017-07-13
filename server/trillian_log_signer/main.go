@@ -25,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian/cmd"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/log"
 	"github.com/google/trillian/monitoring/prometheus"
@@ -99,8 +100,8 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(keys.PEMKeyFileProtoHandler())
-	signerFactory.AddHandler(keys.PrivateKeyProtoHandler())
+	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, keys.NewFromPEMKeyFileProto)
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
 
 	registry := extension.Registry{
 		AdminStorage:    mysql.NewAdminStorage(db),

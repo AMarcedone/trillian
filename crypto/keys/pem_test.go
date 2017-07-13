@@ -24,7 +24,7 @@ import (
 
 func TestPEMKeyFileProtoHandler(t *testing.T) {
 	sf := NewSignerFactory()
-	sf.AddHandler(PEMKeyFileProtoHandler())
+	sf.AddHandler(&keyspb.PEMKeyFile{}, NewFromPEMKeyFileProto)
 
 	for _, test := range []struct {
 		name     string

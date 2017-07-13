@@ -26,23 +26,20 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-// PrivateKeyProtoHandler returns the arguments to pass to SignerFactory.AddHandler() to enable
-// it to convert PrivateKey protobuf messages into crypto.Signers.
-// This conversion is done by extracting the key contained in the PrivateKey message.
-func PrivateKeyProtoHandler() (proto.Message, ProtoHandler) {
-	return &keyspb.PrivateKey{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
-		if k, ok := pb.(*keyspb.PrivateKey); ok {
-			return NewFromPrivateDER(k.GetDer())
-		}
-		return nil, fmt.Errorf("der: got %T, want *keyspb.PrivateKey", pb)
+// NewFromPrivateKeyProto takes a PrivateKey protobuf message and returns the private key contained within.
+// It can be used as a ProtoHandler and passed to SignerFactory.AddHandler().
+func NewFromPrivateKeyProto(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+	if k, ok := pb.(*keyspb.PrivateKey); ok {
+		return NewFromPrivateDER(k.GetDer())
 	}
+	return nil, fmt.Errorf("der: got %T, want *keyspb.PrivateKey", pb)
 }
 
-// PrivateKeyProtoGenerator creates a new private key based on a key specification.
-// It returns a protobuf message that contains the private key.
-// This proto can be passed to SignerFactory.NewSigner() to get a crypto.Signer,
+// NewPrivateKeyProtoFromSpec creates a new private key based on a key specification.
+// It returns a PrivateKey protobuf message that contains the private key.
+// This protobuf message can be passed to SignerFactory.NewSigner() to get a crypto.Signer,
 // if a compatible handler is installed (see AddHandler()).
-func PrivateKeyProtoGenerator(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+func NewPrivateKeyProtoFromSpec(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
 	key, err := NewFromSpec(spec)
 	if err != nil {
 		return nil, fmt.Errorf("der: error generating key: %v", err)
