@@ -69,7 +69,8 @@ func TestRun(t *testing.T) {
 
 	runTest(t, []*testCase{
 		{
-			desc:     "validOpts",
+			desc: "validOpts",
+			// runTest sets mandatory options, so no need to provide a setFlags func.
 			wantTree: defaultTree,
 		},
 		{
@@ -83,7 +84,8 @@ func TestRun(t *testing.T) {
 			wantTree: &nonDefaultTree,
 		},
 		{
-			desc:     "defaultOptsOnly",
+			desc: "mandatoryOptsNotSet",
+			// Undo the flags set by runTest, so that mandatory options are no longer set.
 			setFlags: resetFlags,
 			wantErr:  true,
 		},
@@ -110,6 +112,14 @@ func TestRun(t *testing.T) {
 	})
 }
 
+// runTest executes the createtree command against a fake Trillian server for
+// each of the provided test cases, and checks that the tree in the request is
+// as expected, or an expected error occurs.
+// It changes a couple of flags from their default values before performing the
+// test. It sets the adminServerAddr flag to point to the fake server and sets
+// the privateKeyFormat flag to "test". It also registers a "test" key handler.
+// Finally, it calls the test's setFlags func (if provided) to allow it to
+// change flags specific to the test, then performs the test.
 func runTest(t *testing.T, tests []*testCase) {
 	keyHandlers["test"] = func() (proto.Message, error) {
 		return &empty.Empty{}, nil
@@ -151,6 +161,7 @@ func runTest(t *testing.T, tests []*testCase) {
 	}
 }
 
+// resetFlags sets all flags to their default values.
 func resetFlags() {
 	flag.Visit(func(f *flag.Flag) {
 		f.Value.Set(f.DefValue)
