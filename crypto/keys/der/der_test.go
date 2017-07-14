@@ -117,9 +117,9 @@ func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
 
 		if pb, ok := pb.(*keyspb.PrivateKey); ok {
 			// Get the key out of the proto, check that it matches the spec and test that it works.
-			key, err := NewFromPrivateKeyProto(pb)
+			key, err := FromProto(pb)
 			if err != nil {
-				t.Errorf("%v: NewFromPrivateKeyProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
+				t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
 			}
 
 			if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {

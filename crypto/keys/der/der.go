@@ -33,14 +33,14 @@ import (
 func PrivateKeyProtoHandler() keys.ProtoHandler {
 	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
 		if k, ok := pb.(*keyspb.PrivateKey); ok {
-			return NewFromPrivateKeyProto(k)
+			return FromProto(k)
 		}
 		return nil, fmt.Errorf("der: got %T, want *keyspb.PrivateKey", pb)
 	}
 }
 
-// NewFromPrivateKeyProto takes a PrivateKey protobuf message and returns the private key contained within.
-func NewFromPrivateKeyProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
+// FromProto takes a PrivateKey protobuf message and returns the private key contained within.
+func FromProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
 	return NewFromPrivateDER(pb.GetDer())
 }
 
