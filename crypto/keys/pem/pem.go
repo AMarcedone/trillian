@@ -66,8 +66,8 @@ func ReadPrivateKeyFile(file, password string) (crypto.Signer, error) {
 	return k, nil
 }
 
-// NewFromPublicPEMFile reads a PEM-encoded public key from a file.
-func NewFromPublicPEMFile(file string) (crypto.PublicKey, error) {
+// ReadPublicKeyFile reads a PEM-encoded public key from a file.
+func ReadPublicKeyFile(file string) (crypto.PublicKey, error) {
 	keyPEM, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("pemfile: error reading %q: %v", file, err)

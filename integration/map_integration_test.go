@@ -43,7 +43,7 @@ func TestLiveMapIntegration(t *testing.T) {
 	if *mapID == -1 {
 		t.Skip("Map integration test skipped as no map ID provided")
 	}
-	pubKey, err := pem.NewFromPublicPEMFile(*pubKeyPath)
+	pubKey, err := pem.ReadPublicKeyFile(*pubKeyPath)
 	if err != nil {
 		t.Fatalf("No public key provided")
 	}
