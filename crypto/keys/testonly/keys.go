@@ -35,7 +35,7 @@ import (
 // MustMarshalPublicPEMToDER reads a PEM-encoded public key and returns it in DER encoding.
 // If an error occurs, it panics.
 func MustMarshalPublicPEMToDER(keyPEM string) []byte {
-	key, err := pem.NewFromPublicPEM(keyPEM)
+	key, err := pem.UnmarshalPublicKey(keyPEM)
 	if err != nil {
 		panic(err)
 	}

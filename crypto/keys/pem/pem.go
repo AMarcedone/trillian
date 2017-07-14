@@ -73,7 +73,7 @@ func ReadPublicKeyFile(file string) (crypto.PublicKey, error) {
 		return nil, fmt.Errorf("pemfile: error reading %q: %v", file, err)
 	}
 
-	return NewFromPublicPEM(string(keyPEM))
+	return UnmarshalPublicKey(string(keyPEM))
 }
 
 // UnmarshalPrivateKey reads a PEM-encoded private key from a string.
@@ -99,8 +99,8 @@ func UnmarshalPrivateKey(keyPEM, password string) (crypto.Signer, error) {
 	return der.NewFromPrivateDER(keyDER)
 }
 
-// NewFromPublicPEM reads a PEM-encoded public key from a string.
-func NewFromPublicPEM(keyPEM string) (crypto.PublicKey, error) {
+// UnmarshalPublicKey reads a PEM-encoded public key from a string.
+func UnmarshalPublicKey(keyPEM string) (crypto.PublicKey, error) {
 	block, rest := pem.Decode([]byte(keyPEM))
 	if block == nil {
 		return nil, errors.New("pemfile: invalid public key PEM")
