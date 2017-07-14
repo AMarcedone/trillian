@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/merkle/hashers"
@@ -128,7 +127,7 @@ func (s *Server) CreateTree(ctx context.Context, request *trillian.CreateTreeReq
 	}
 
 	// Check that the tree.PrivateKey is valid by trying to get a signer.
-	signer, err := trees.Signer(ctx, s.registry.SignerFactory, tree)
+	signer, err := trees.Signer(ctx, tree)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "failed to create signer for tree: %v", err.Error())
 	}

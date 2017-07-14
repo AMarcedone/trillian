@@ -1,5 +1,3 @@
-// +build pkcs11
-
 // Copyright 2017 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,17 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+// Package proto registers a PEM keys.ProtoHandler using keys.RegisterHandler.
+// This handler will use a keyspb.PEMKeyFile protobuf message to get a crypto.Signer.
+package proto
 
 import (
-	"flag"
+	"context"
+	"crypto"
+	"fmt"
 
-	"github.com/google/trillian/crypto/keys/pkcs11"
+	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-var pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-
 func init() {
-	signerFactory.AddHandler(&keyspb.PKCS11Config{}, pkcs11.ProtoHandler(pkcs11ModulePath))
+	keys.RegisterHandler(&keyspb.PEMKeyFile{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+		if pb, ok := pb.(*keyspb.PEMKeyFile); ok {
+			return pem.FromProto(pb)
+		}
+		return nil, fmt.Errorf("pemfile: got %T, want *keyspb.PEMKeyFile", pb)
+	})
 }

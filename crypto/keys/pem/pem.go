@@ -15,7 +15,6 @@
 package pem
 
 import (
-	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
@@ -23,23 +22,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/der"
 	"github.com/google/trillian/crypto/keyspb"
 )
-
-// PEMKeyFileProtoHandler returns a ProtoHandler for PEMKeyFile protobuf messages.
-// This ProtoHandler will read a key from a file specified in a PEMKeyFile protobuf message.
-// It can be passed to SignerFactory.AddHandler().
-func PEMKeyFileProtoHandler() keys.ProtoHandler {
-	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
-		if f, ok := pb.(*keyspb.PEMKeyFile); ok {
-			return FromProto(f)
-		}
-		return nil, fmt.Errorf("pemfile: got %T, want *keyspb.PEMKeyFile", pb)
-	}
-}
 
 // FromProto takes a PEMKeyFile protobuf message and loads the private key it specifies.
 func FromProto(pb *keyspb.PEMKeyFile) (crypto.Signer, error) {

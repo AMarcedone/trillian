@@ -22,12 +22,13 @@ import (
 	"os"
 	"time"
 
+	// Register key ProtoHandlers
+	_ "github.com/google/trillian/crypto/keys/der/proto"
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
+	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
+
 	"github.com/golang/glog"
 	"github.com/google/trillian/cmd"
-	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/crypto/keys/der"
-	"github.com/google/trillian/crypto/keys/pem"
-	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	"github.com/google/trillian/log"
 	"github.com/google/trillian/monitoring/prometheus"
@@ -64,8 +65,6 @@ var (
 	resignOdds          = flag.Int("resign_odds", 10, "Chance of resigning mastership after each check, the N in 1-in-N")
 
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
-
-	signerFactory = keys.NewSignerFactory()
 )
 
 func main() {
@@ -102,13 +101,9 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.ProtoHandler())
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.ProtoHandler())
-
 	registry := extension.Registry{
 		AdminStorage:    mysql.NewAdminStorage(db),
 		LogStorage:      mysql.NewLogStorage(db, mf),
-		SignerFactory:   signerFactory,
 		ElectionFactory: electionFactory,
 		QuotaManager:    quota.Noop(),
 		MetricFactory:   mf,

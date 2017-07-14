@@ -12,28 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package der_test
+package proto
 
 import (
 	"context"
 	"encoding/base64"
 	"testing"
 
-	. "github.com/google/trillian/crypto/keys/der"
+	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/testonly"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-func TestFromProto(t *testing.T) {
+func TestProtoHandler(t *testing.T) {
 	// ECDSA private key in DER format.
 	keyDER, err := base64.StdEncoding.DecodeString("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgS81mfpvtTmaINn+gtrYXn4XpxxgE655GLSKsA3hhjHmhRANCAASwBWDdgHS04V/cN0LZgc8vZaK4I1HWLLCoaOO27Z0B1aS1aqBE7g1Oo8ldSCBJAvee866kcHhZkVniPdCG2ZZG")
 	if err != nil {
 		t.Fatalf("Could not decode test key: %v", err)
 	}
 
+	ctx := context.Background()
+
 	for _, test := range []struct {
 		desc     string
-		keyProto *keyspb.PrivateKey
+		keyProto proto.Message
 		wantErr  bool
 	}{
 		{
@@ -55,9 +58,9 @@ func TestFromProto(t *testing.T) {
 			wantErr:  true,
 		},
 	} {
-		signer, err := FromProto(test.keyProto)
+		signer, err := keys.NewSigner(ctx, test.keyProto)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
+			t.Errorf("%v: NewSigner(_, %#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
 			continue
 		} else if gotErr {
 			continue
@@ -66,64 +69,6 @@ func TestFromProto(t *testing.T) {
 		// Check that the returned signer can produce signatures successfully.
 		if err := testonly.SignAndVerify(signer, signer.Public()); err != nil {
 			t.Errorf("%v: SignAndVerify() = %q, want nil", test.desc, err)
-		}
-	}
-}
-
-func TestNewProtoFromSpec(t *testing.T) {
-	ctx := context.Background()
-
-	for _, test := range []struct {
-		desc    string
-		keySpec *keyspb.Specification
-		wantErr bool
-	}{
-		{
-			desc: "ECDSA",
-			keySpec: &keyspb.Specification{
-				Params: &keyspb.Specification_EcdsaParams{},
-			},
-		},
-		{
-			desc: "RSA",
-			keySpec: &keyspb.Specification{
-				Params: &keyspb.Specification_RsaParams{},
-			},
-		},
-		{
-			desc:    "No params",
-			keySpec: &keyspb.Specification{},
-			wantErr: true,
-		},
-		{
-			desc:    "Nil KeySpec",
-			wantErr: true,
-		},
-	} {
-		pb, err := NewProtoFromSpec(ctx, test.keySpec)
-		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: NewProtoFromSpec() = (_, %q), want err? %v", test.desc, err, test.wantErr)
-			continue
-		} else if gotErr {
-			continue
-		}
-
-		if pb, ok := pb.(*keyspb.PrivateKey); ok {
-			// Get the key out of the proto, check that it matches the spec and test that it works.
-			key, err := FromProto(pb)
-			if err != nil {
-				t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
-			}
-
-			if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {
-				t.Errorf("%v: NewProtoFromSpec() => %v", test.desc, err)
-			}
-
-			if err := testonly.SignAndVerify(key, key.Public()); err != nil {
-				t.Errorf("%v: SignAndVerify() = %q, want nil")
-			}
-		} else {
-			t.Errorf("%v: NewProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)
 		}
 	}
 }

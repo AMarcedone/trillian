@@ -15,12 +15,9 @@
 package pem_test
 
 import (
-	"context"
 	"crypto"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/google/trillian/crypto/keys"
 	. "github.com/google/trillian/crypto/keys/pem"
 	ktestonly "github.com/google/trillian/crypto/keys/testonly"
 	"github.com/google/trillian/crypto/keyspb"
@@ -57,15 +54,10 @@ NHcCAQEEIHG5m/q2sUSa4P8pRZgYt3K0ESFSKp1qp15VjJhpLle4oAoGCCqGSM49AwEHoUQDQgAEvuyn
 `
 )
 
-func TestProtoHandler(t *testing.T) {
-	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PEMKeyFile{}, ProtoHandler())
-
-	ctx := context.Background()
-
+func TestFromProto(t *testing.T) {
 	for _, test := range []struct {
 		desc     string
-		keyProto proto.Message
+		keyProto *keyspb.PEMKeyFile
 		wantErr  bool
 	}{
 		{
@@ -98,9 +90,9 @@ func TestProtoHandler(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		signer, err := sf.NewSigner(ctx, test.keyProto)
+		signer, err := FromProto(test.keyProto)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: SignerFactory.NewSigner(_, %#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
+			t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, test.keyProto, err)
 			continue
 		} else if gotErr {
 			continue

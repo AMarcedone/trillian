@@ -109,7 +109,6 @@ func TestSequencerManagerSingleLogNoLeaves(t *testing.T) {
 	mockAdminTx := storage.NewMockReadOnlyAdminTX(mockCtrl)
 	mockStorage := storage.NewMockLogStorage(mockCtrl)
 	mockTx := storage.NewMockLogTreeTX(mockCtrl)
-	sf := keys.NewSignerFactory()
 
 	var keyProto ptypes.DynamicAny
 	if err := ptypes.UnmarshalAny(stestonly.LogTree.PrivateKey, &keyProto); err != nil {
@@ -121,7 +120,8 @@ func TestSequencerManagerSingleLogNoLeaves(t *testing.T) {
 		t.Fatalf("Failed to create fake signer: %v", err)
 	}
 
-	sf.AddHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	defer keys.UnregisterHandler(keyProto.Message)
 
 	mockStorage.EXPECT().BeginForTree(gomock.Any(), logID).Return(mockTx, nil)
 	mockTx.EXPECT().Commit().Return(nil)
@@ -136,10 +136,9 @@ func TestSequencerManagerSingleLogNoLeaves(t *testing.T) {
 	mockAdminTx.EXPECT().Close().Return(nil)
 
 	registry := extension.Registry{
-		AdminStorage:  mockAdmin,
-		LogStorage:    mockStorage,
-		SignerFactory: sf,
-		QuotaManager:  quota.Noop(),
+		AdminStorage: mockAdmin,
+		LogStorage:   mockStorage,
+		QuotaManager: quota.Noop(),
 	}
 
 	sm := NewSequencerManager(registry, zeroDuration)
@@ -167,14 +166,12 @@ func TestSequencerManagerCachesSigners(t *testing.T) {
 		t.Fatalf("Failed to create fake signer: %v", err)
 	}
 
-	sf := keys.NewSignerFactory()
-	sf.AddHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
 
 	registry := extension.Registry{
-		AdminStorage:  mockAdmin,
-		LogStorage:    mockStorage,
-		SignerFactory: sf,
-		QuotaManager:  quota.Noop(),
+		AdminStorage: mockAdmin,
+		LogStorage:   mockStorage,
+		QuotaManager: quota.Noop(),
 	}
 	sm := NewSequencerManager(registry, zeroDuration)
 
@@ -200,11 +197,11 @@ func TestSequencerManagerCachesSigners(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Remove the SignerFactory ProtoHandler added earlier in the test.
-		// This guarantees that no further calls to SignerFactory.NewSigner() will succeed.
+		// Remove the ProtoHandler added earlier in the test.
+		// This guarantees that no further calls to keys.NewSigner() will succeed.
 		// This tests that the signer obtained by SequencerManager during the first sequencing
 		// pass is cached and re-used for the second pass.
-		sf.RemoveHandler(keyProto.Message)
+		keys.UnregisterHandler(keyProto.Message)
 	}
 }
 
@@ -224,8 +221,8 @@ func TestSequencerManagerSingleLogNoSigner(t *testing.T) {
 		t.Fatalf("Failed to unmarshal stestonly.LogTree.PrivateKey: %v", err)
 	}
 
-	sf := keys.NewSignerFactory()
-	sf.AddHandler(fakeKeyProtoHandler(keyProto.Message, nil, errors.New("no signer for this tree")))
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto.Message, nil, errors.New("no signer for this tree")))
+	defer keys.UnregisterHandler(keyProto.Message)
 
 	gomock.InOrder(
 		mockAdmin.EXPECT().Snapshot(gomock.Any()).Return(mockAdminTx, nil),
@@ -235,10 +232,9 @@ func TestSequencerManagerSingleLogNoSigner(t *testing.T) {
 	)
 
 	registry := extension.Registry{
-		AdminStorage:  mockAdmin,
-		LogStorage:    mockStorage,
-		SignerFactory: sf,
-		QuotaManager:  quota.Noop(),
+		AdminStorage: mockAdmin,
+		LogStorage:   mockStorage,
+		QuotaManager: quota.Noop(),
 	}
 
 	sm := NewSequencerManager(registry, zeroDuration)
@@ -268,8 +264,8 @@ func TestSequencerManagerSingleLogOneLeaf(t *testing.T) {
 		t.Fatalf("Failed to create fake signer: %v", err)
 	}
 
-	sf := keys.NewSignerFactory()
-	sf.AddHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	defer keys.UnregisterHandler(keyProto.Message)
 
 	// Set up enough mockery to be able to sequence. We don't test all the error paths
 	// through sequencer as other tests cover this
@@ -289,10 +285,9 @@ func TestSequencerManagerSingleLogOneLeaf(t *testing.T) {
 	mockAdminTx.EXPECT().Close().Return(nil)
 
 	registry := extension.Registry{
-		AdminStorage:  mockAdmin,
-		LogStorage:    mockStorage,
-		SignerFactory: sf,
-		QuotaManager:  quota.Noop(),
+		AdminStorage: mockAdmin,
+		LogStorage:   mockStorage,
+		QuotaManager: quota.Noop(),
 	}
 
 	sm := NewSequencerManager(registry, zeroDuration)
@@ -320,8 +315,8 @@ func TestSequencerManagerGuardWindow(t *testing.T) {
 		t.Fatalf("Failed to create fake signer: %v", err)
 	}
 
-	sf := keys.NewSignerFactory()
-	sf.AddHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto.Message, signer, nil))
+	defer keys.UnregisterHandler(keyProto.Message)
 
 	mockStorage.EXPECT().BeginForTree(gomock.Any(), logID).Return(mockTx, nil)
 	mockTx.EXPECT().Commit().Return(nil)
@@ -337,10 +332,9 @@ func TestSequencerManagerGuardWindow(t *testing.T) {
 	mockAdminTx.EXPECT().Close().Return(nil)
 
 	registry := extension.Registry{
-		AdminStorage:  mockAdmin,
-		LogStorage:    mockStorage,
-		SignerFactory: sf,
-		QuotaManager:  quota.Noop(),
+		AdminStorage: mockAdmin,
+		LogStorage:   mockStorage,
+		QuotaManager: quota.Noop(),
 	}
 
 	sm := NewSequencerManager(registry, time.Second*5)

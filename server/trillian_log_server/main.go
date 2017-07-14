@@ -22,13 +22,16 @@ import (
 
 	_ "github.com/go-sql-driver/mysql" // Load MySQL driver
 
+	// Register key ProtoHandlers
+	_ "github.com/google/trillian/crypto/keys/der/proto"
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
+	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
+
 	"github.com/golang/glog"
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/der"
-	"github.com/google/trillian/crypto/keys/pem"
-	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	_ "github.com/google/trillian/merkle/objhasher" // Load hashers
 	_ "github.com/google/trillian/merkle/rfc6962"   // Load hashers
@@ -54,8 +57,6 @@ var (
 	quotaDryRun        = flag.Bool("quota_dry_run", false, "If true no requests are blocked due to lack of tokens")
 
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
-
-	signerFactory = keys.NewSignerFactory()
 )
 
 func main() {
@@ -90,8 +91,7 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.ProtoHandler())
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.ProtoHandler())
+	signerFactory := keys.NewSignerFactory()
 	signerFactory.Generate = der.NewProtoFromSpec
 
 	registry := extension.Registry{

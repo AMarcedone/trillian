@@ -1,5 +1,3 @@
-// +build pkcs11
-
 // Copyright 2017 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,17 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
-
-import (
-	"flag"
-
-	"github.com/google/trillian/crypto/keys/pkcs11"
-	"github.com/google/trillian/crypto/keyspb"
-)
-
-var pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-
-func init() {
-	signerFactory.AddHandler(&keyspb.PKCS11Config{}, pkcs11.ProtoHandler(pkcs11ModulePath))
-}
+// Package proto registers a PKCS#11 keys.ProtoHandler using keys.RegisterHandler.
+// This handler will use a keyspb.PKCS11Config protobuf message to get a crypto.Signer.
+package proto

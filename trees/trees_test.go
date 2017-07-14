@@ -252,11 +252,11 @@ func TestSigner(t *testing.T) {
 	defer ctrl.Finish()
 
 	tests := []struct {
-		desc             string
-		sigAlgo          sigpb.DigitallySigned_SignatureAlgorithm
-		signer           crypto.Signer
-		signerFactoryErr error
-		wantErr          bool
+		desc         string
+		sigAlgo      sigpb.DigitallySigned_SignatureAlgorithm
+		signer       crypto.Signer
+		newSignerErr error
+		wantErr      bool
 	}{
 		{
 			desc:    "anonymous",
@@ -286,10 +286,10 @@ func TestSigner(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			desc:             "signerFactoryErr",
-			sigAlgo:          sigpb.DigitallySigned_ECDSA,
-			signerFactoryErr: errors.New("signer factory error"),
-			wantErr:          true,
+			desc:         "newSignerErr",
+			sigAlgo:      sigpb.DigitallySigned_ECDSA,
+			newSignerErr: errors.New("NewSigner() error"),
+			wantErr:      true,
 		},
 	}
 
@@ -305,15 +305,15 @@ func TestSigner(t *testing.T) {
 			t.Errorf("%v: failed to unmarshal tree.PrivateKey: %v", test.desc, err)
 		}
 
-		sf := keys.NewSignerFactory()
-		sf.AddHandler(wantKeyProto.Message, func(ctx context.Context, gotKeyProto proto.Message) (crypto.Signer, error) {
+		keys.RegisterHandler(wantKeyProto.Message, func(ctx context.Context, gotKeyProto proto.Message) (crypto.Signer, error) {
 			if !proto.Equal(gotKeyProto, wantKeyProto.Message) {
-				return nil, fmt.Errorf("SignerFactory.NewSigner(_, %#v) called, want NewSigner(_, %#v)", gotKeyProto, wantKeyProto.Message)
+				return nil, fmt.Errorf("NewSigner(_, %#v) called, want NewSigner(_, %#v)", gotKeyProto, wantKeyProto.Message)
 			}
-			return test.signer, test.signerFactoryErr
+			return test.signer, test.newSignerErr
 		})
+		defer keys.UnregisterHandler(wantKeyProto.Message)
 
-		signer, err := Signer(ctx, sf, &tree)
+		signer, err := Signer(ctx, &tree)
 		if hasErr := err != nil; hasErr != test.wantErr {
 			t.Errorf("%v: Signer(_, %s) = (_, %q), wantErr = %v", test.desc, test.sigAlgo, err, test.wantErr)
 			continue

@@ -68,17 +68,20 @@ func TestNewSigner(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		sf := NewSignerFactory()
 		if test.handler != nil {
-			sf.AddHandler(test.keyProto, test.handler)
+			RegisterHandler(test.keyProto, test.handler)
 		}
 
-		gotSigner, err := sf.NewSigner(ctx, test.keyProto)
+		gotSigner, err := NewSigner(ctx, test.keyProto)
 		switch gotErr := err != nil; {
 		case gotErr != test.wantErr:
 			t.Errorf("%v: NewSigner() = (_, %q), want err? %v", test.desc, err, test.wantErr)
 		case !gotErr && gotSigner != wantSigner:
 			t.Errorf("%v: NewSigner() = (%#v, _), want (%#v, _)", test.desc, gotSigner, wantSigner)
+		}
+
+		if test.handler != nil {
+			UnregisterHandler(test.keyProto)
 		}
 	}
 }

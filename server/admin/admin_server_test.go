@@ -89,6 +89,9 @@ func TestServer_BeginError(t *testing.T) {
 		t.Fatalf("Error marshaling key proto as protobuf Any: %v", err)
 	}
 
+	keys.RegisterHandler(fakeKeyProtoHandler(keyProto, privateKey))
+	defer keys.UnregisterHandler(keyProto)
+
 	tests := []struct {
 		desc     string
 		fn       func(context.Context, *Server) error
@@ -128,12 +131,8 @@ func TestServer_BeginError(t *testing.T) {
 			as.EXPECT().Begin(ctx).Return(nil, errors.New("begin error"))
 		}
 
-		sf := keys.NewSignerFactory()
-		sf.AddHandler(fakeKeyProtoHandler(keyProto, privateKey))
-
 		registry := extension.Registry{
-			AdminStorage:  as,
-			SignerFactory: sf,
+			AdminStorage: as,
 		}
 
 		s := &Server{registry: registry}
@@ -476,7 +475,8 @@ func TestServer_CreateTree(t *testing.T) {
 			sf.Generate = fakeKeyProtoGenerator(test.req.GetKeySpec(), wantKeyProto)
 		}
 
-		sf.AddHandler(fakeKeyProtoHandler(wantKeyProto, privateKey))
+		keys.RegisterHandler(fakeKeyProtoHandler(wantKeyProto, privateKey))
+		defer keys.UnregisterHandler(wantKeyProto)
 
 		setup := setupAdminServer(ctrl, sf, false /* snapshot */, test.wantCommit, test.commitErr)
 		tx := setup.tx

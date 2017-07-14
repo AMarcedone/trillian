@@ -17,16 +17,10 @@ package keys
 import (
 	"context"
 	"crypto"
-	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian/crypto/keyspb"
 )
-
-// ProtoHandler uses the information in a protobuf message to obtain a crypto.Signer.
-// For example, the protobuf message may contain a key or identify where a key can be found.
-type ProtoHandler func(context.Context, proto.Message) (crypto.Signer, error)
 
 // ProtoGenerator creates a new private key based on a key specification.
 // It returns a proto that can be passed to a ProtoHandler to get a crypto.Signer.
@@ -39,48 +33,15 @@ type SignerFactory struct {
 	// It returns a proto that can be passed to NewSigner() to get a crypto.Signer.
 	// If nil, key generation will not be possible.
 	Generate ProtoGenerator
-
-	// handlers convert a protobuf message into a crypto.Signer.
-	handlers map[string]ProtoHandler
 }
 
 // NewSignerFactory returns a SignerFactory with no ProtoHandlers or ProtoGenerator.
 func NewSignerFactory() SignerFactory {
-	return SignerFactory{
-		handlers: make(map[string]ProtoHandler),
-	}
-}
-
-// AddHandler enables the SignerFactory to transform a protobuf message of the same
-// type as keyProto into a crypto.Signer by invoking handler.
-// The keyProto need only be an empty example of the type of protobuf message that
-// the handler can process - only its type is examined.
-// If a handler for this type of protobuf message has already been added, it will
-// be replaced.
-func (f SignerFactory) AddHandler(keyProto proto.Message, handler ProtoHandler) {
-	keyProtoType := proto.MessageName(keyProto)
-
-	if _, alreadyExists := f.handlers[keyProtoType]; alreadyExists {
-		glog.Warningf("Overridding ProtoHandler for protobuf %q", keyProtoType)
-	}
-
-	f.handlers[keyProtoType] = handler
-}
-
-// RemoveHandler removes a previously-added protobuf message handler.
-// See SignerFactory.AddHandler().
-func (f SignerFactory) RemoveHandler(keyProto proto.Message) {
-	delete(f.handlers, proto.MessageName(keyProto))
+	return SignerFactory{}
 }
 
 // NewSigner uses the information in pb to return a crypto.Signer.
 // pb must be a keyspb.PEMKeyFile, keyspb.PrivateKey or keyspb.PKCS11Config.
 func (f SignerFactory) NewSigner(ctx context.Context, keyProto proto.Message) (crypto.Signer, error) {
-	keyProtoType := proto.MessageName(keyProto)
-
-	if handler, ok := f.handlers[keyProtoType]; ok {
-		return handler(ctx, keyProto)
-	}
-
-	return nil, fmt.Errorf("no ProtoHandler registered for protobuf %q", keyProtoType)
+	return NewSigner(ctx, keyProto)
 }
