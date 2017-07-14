@@ -34,7 +34,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/der"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
@@ -73,15 +72,14 @@ func main() {
 	}
 	// No defer: database ownership is delegated to server.Main
 
-	keys.Generate = func(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
-		return der.NewProtoFromSpec(spec)
-	}
-
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		MapStorage:    mysql.NewMapStorage(db),
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: *maxUnsequencedRows},
 		MetricFactory: prometheus.MetricFactory{},
+		NewKeyProto: func(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+			return der.NewProtoFromSpec(spec)
+		},
 	}
 
 	ts := util.SystemTimeSource{}

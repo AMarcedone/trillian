@@ -33,7 +33,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/der"
 	"github.com/google/trillian/extension"
 	_ "github.com/google/trillian/merkle/objhasher" // Load hashers
@@ -93,15 +92,14 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	keys.Generate = func(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
-		return der.NewProtoFromSpec(spec)
-	}
-
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		LogStorage:    mysql.NewLogStorage(db, mf),
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: *maxUnsequencedRows},
 		MetricFactory: mf,
+		NewKeyProto: func(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+			return der.NewProtoFromSpec(spec)
+		},
 	}
 
 	ts := util.SystemTimeSource{}

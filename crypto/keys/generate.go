@@ -35,10 +35,9 @@ const (
 	MinRsaKeySizeInBits = 2048
 )
 
-// Generate creates a new private key based on a key specification.
+// ProtoGenerator creates a new private key based on a key specification.
 // It returns a proto that can be passed to a ProtoHandler to get a crypto.Signer.
-// Defaults to nil; should be set before use.
-var Generate func(context.Context, *keyspb.Specification) (proto.Message, error)
+type ProtoGenerator func(context.Context, *keyspb.Specification) (proto.Message, error)
 
 // NewFromSpec generates a new private key based on a key specification.
 // If an RSA key is specified, the key size must be at least MinRsaKeySizeInBits.
