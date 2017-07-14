@@ -111,7 +111,7 @@ func TestInProcessLogIntegrationDuplicateLeaves(t *testing.T) {
 	ms := memory.NewLogStorage(nil)
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
 
 	reggie := extension.Registry{
 		AdminStorage:  memory.NewAdminStorage(ms),

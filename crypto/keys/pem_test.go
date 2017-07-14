@@ -24,7 +24,7 @@ import (
 
 func TestPEMKeyFileProtoHandler(t *testing.T) {
 	sf := NewSignerFactory()
-	sf.AddHandler(&keyspb.PEMKeyFile{}, NewFromPEMKeyFileProto)
+	sf.AddHandler(&keyspb.PEMKeyFile{}, PEMKeyFileProtoHandler())
 
 	ctx := context.Background()
 

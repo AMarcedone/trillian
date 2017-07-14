@@ -53,7 +53,7 @@ func NewMapEnv(ctx context.Context, testID string) (*MapEnv, error) {
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

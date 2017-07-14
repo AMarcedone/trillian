@@ -26,13 +26,21 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-// NewFromPrivateKeyProto takes a PrivateKey protobuf message and returns the private key contained within.
-// It can be used as a ProtoHandler and passed to SignerFactory.AddHandler().
-func NewFromPrivateKeyProto(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
-	if k, ok := pb.(*keyspb.PrivateKey); ok {
-		return NewFromPrivateDER(k.GetDer())
+// PrivateKeyFileProtoHandler returns a ProtoHandler for PrivateKey protobuf messages.
+// This ProtoHandler will extract the DER-encoded private key held within the protobuf message.
+// It can be passed to SignerFactory.AddHandler().
+func PrivateKeyProtoHandler() ProtoHandler {
+	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+		if k, ok := pb.(*keyspb.PrivateKey); ok {
+			return NewFromPrivateKeyProto(k)
+		}
+		return nil, fmt.Errorf("der: got %T, want *keyspb.PrivateKey", pb)
 	}
-	return nil, fmt.Errorf("der: got %T, want *keyspb.PrivateKey", pb)
+}
+
+// NewFromPrivateKeyProto takes a PrivateKey protobuf message and returns the private key contained within.
+func NewFromPrivateKeyProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
+	return NewFromPrivateDER(pb.GetDer())
 }
 
 // NewPrivateKeyProtoFromSpec creates a new private key based on a key specification.

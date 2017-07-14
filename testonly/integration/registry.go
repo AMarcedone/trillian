@@ -31,7 +31,7 @@ func NewRegistryForTests(testID string) (extension.Registry, error) {
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
+	sf.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
 
 	return extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

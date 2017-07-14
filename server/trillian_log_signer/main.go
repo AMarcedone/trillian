@@ -100,8 +100,8 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, keys.NewFromPEMKeyFileProto)
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, keys.NewFromPrivateKeyProto)
+	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, keys.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
 
 	registry := extension.Registry{
 		AdminStorage:    mysql.NewAdminStorage(db),

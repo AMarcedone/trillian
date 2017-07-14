@@ -31,7 +31,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	}
 
 	sf := NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, NewFromPrivateKeyProto)
+	sf.AddHandler(&keyspb.PrivateKey{}, PrivateKeyProtoHandler())
 
 	ctx := context.Background()
 
@@ -112,18 +112,22 @@ func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
 			continue
 		}
 
-		// Get the key out of the proto, check that it matches the spec and test that it works.
-		key, err := NewFromPrivateKeyProto(ctx, pb)
-		if err != nil {
-			t.Errorf("%v: NewFromPrivateKeyProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
-		}
+		if pb, ok := pb.(*keyspb.PrivateKey); ok {
+			// Get the key out of the proto, check that it matches the spec and test that it works.
+			key, err := NewFromPrivateKeyProto(pb)
+			if err != nil {
+				t.Errorf("%v: NewFromPrivateKeyProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
+			}
 
-		if err := checkKeyMatchesSpec(key, test.keySpec); err != nil {
-			t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %v", test.desc, err)
-		}
+			if err := checkKeyMatchesSpec(key, test.keySpec); err != nil {
+				t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %v", test.desc, err)
+			}
 
-		if err := signAndVerify(key, key.Public()); err != nil {
-			t.Errorf("%v: signAndVerify(%#v) = %q, want nil")
+			if err := signAndVerify(key, key.Public()); err != nil {
+				t.Errorf("%v: signAndVerify(%#v) = %q, want nil")
+			}
+		} else {
+			t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)
 		}
 	}
 }
