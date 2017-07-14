@@ -91,7 +91,7 @@ func main() {
 	mf := prometheus.MetricFactory{}
 
 	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.PEMKeyFileProtoHandler())
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.PrivateKeyProtoHandler())
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.ProtoHandler())
 	signerFactory.Generate = der.NewProtoFromSpec
 
 	registry := extension.Registry{

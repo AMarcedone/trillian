@@ -69,7 +69,7 @@ func main() {
 	// No defer: database ownership is delegated to server.Main
 
 	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.PEMKeyFileProtoHandler())
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.PrivateKeyProtoHandler())
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.ProtoHandler())
 	signerFactory.Generate = der.NewProtoFromSpec
 
 	registry := extension.Registry{

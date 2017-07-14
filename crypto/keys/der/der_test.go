@@ -26,7 +26,7 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-func TestPrivateKeyProtoHandler(t *testing.T) {
+func TestProtoHandler(t *testing.T) {
 	// ECDSA private key in DER format.
 	keyDER, err := base64.StdEncoding.DecodeString("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgS81mfpvtTmaINn+gtrYXn4XpxxgE655GLSKsA3hhjHmhRANCAASwBWDdgHS04V/cN0LZgc8vZaK4I1HWLLCoaOO27Z0B1aS1aqBE7g1Oo8ldSCBJAvee866kcHhZkVniPdCG2ZZG")
 	if err != nil {
@@ -34,7 +34,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, ProtoHandler())
 
 	ctx := context.Background()
 
