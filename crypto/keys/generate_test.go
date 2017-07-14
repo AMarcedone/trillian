@@ -15,8 +15,10 @@
 package keys
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"fmt"
 	"testing"
 
 	"github.com/google/trillian/crypto/keyspb"
@@ -25,18 +27,18 @@ import (
 func TestNewFromSpec(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
-		keygen  *keyspb.Specification
+		keySpec *keyspb.Specification
 		wantErr bool
 	}{
 		{
 			desc: "ECDSA with default params",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_EcdsaParams{},
 			},
 		},
 		{
 			desc: "ECDSA with explicit params",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_EcdsaParams{
 					EcdsaParams: &keyspb.Specification_ECDSA{
 						Curve: keyspb.Specification_ECDSA_P521,
@@ -46,13 +48,13 @@ func TestNewFromSpec(t *testing.T) {
 		},
 		{
 			desc: "RSA with default params",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{},
 			},
 		},
 		{
 			desc: "RSA with explicit params",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
 						Bits: 4096,
@@ -62,7 +64,7 @@ func TestNewFromSpec(t *testing.T) {
 		},
 		{
 			desc: "RSA with negative key size",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
 						Bits: -4096,
@@ -73,7 +75,7 @@ func TestNewFromSpec(t *testing.T) {
 		},
 		{
 			desc: "RSA with insufficient key size",
-			keygen: &keyspb.Specification{
+			keySpec: &keyspb.Specification{
 				Params: &keyspb.Specification_RsaParams{
 					RsaParams: &keyspb.Specification_RSA{
 						Bits: MinRsaKeySizeInBits - 1,
@@ -84,7 +86,7 @@ func TestNewFromSpec(t *testing.T) {
 		},
 		{
 			desc:    "No params",
-			keygen:  &keyspb.Specification{},
+			keySpec: &keyspb.Specification{},
 			wantErr: true,
 		},
 		{
@@ -92,7 +94,7 @@ func TestNewFromSpec(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		key, err := NewFromSpec(test.keygen)
+		key, err := NewFromSpec(test.keySpec)
 		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("%v: NewFromSpec() = (_, %v), want err? %v", test.desc, err, test.wantErr)
 			continue
@@ -100,31 +102,47 @@ func TestNewFromSpec(t *testing.T) {
 			continue
 		}
 
-		switch params := test.keygen.Params.(type) {
-		case *keyspb.Specification_EcdsaParams:
-			switch key := key.(type) {
-			case *ecdsa.PrivateKey:
-				wantCurve := curveFromParams(params.EcdsaParams)
-				if wantCurve.Params().Name != key.Params().Name {
-					t.Errorf("%v: NewFromSpec() => ECDSA key on %v curve, want %v curve", test.desc, key.Params().Name, wantCurve.Params().Name)
-				}
-			default:
-				t.Errorf("%v: NewFromSpec() = (%T, nil), want *ecdsa.PrivateKey", test.desc, key)
-			}
-		case *keyspb.Specification_RsaParams:
-			switch key := key.(type) {
-			case *rsa.PrivateKey:
-				wantBits := defaultRsaKeySizeInBits
-				if params.RsaParams.GetBits() != 0 {
-					wantBits = int(params.RsaParams.GetBits())
-				}
-
-				if got, want := key.N.BitLen(), wantBits; got != want {
-					t.Errorf("%v: NewFromSpec() => %v-bit RSA key, want %v-bit", test.desc, got, want)
-				}
-			default:
-				t.Errorf("%v: NewFromSpec() = (%T, nil), want *rsa.PrivateKey", test.desc, key)
-			}
+		if err := checkKeyMatchesSpec(key, test.keySpec); err != nil {
+			t.Errorf("%v: NewFromSpec(): %v", test.desc, err)
 		}
 	}
+}
+
+func checkKeyMatchesSpec(key crypto.PrivateKey, spec *keyspb.Specification) error {
+	switch params := spec.Params.(type) {
+	case *keyspb.Specification_EcdsaParams:
+		if key, ok := key.(*ecdsa.PrivateKey); ok {
+			return checkEcdsaKeyMatchesParams(key, params.EcdsaParams)
+		}
+		return fmt.Errorf("%T, want *ecdsa.PrivateKey", key)
+	case *keyspb.Specification_RsaParams:
+		if key, ok := key.(*rsa.PrivateKey); ok {
+			return checkRsaKeyMatchesParams(key, params.RsaParams)
+		}
+		return fmt.Errorf("%T, want *rsa.PrivateKey", key)
+	}
+
+	return fmt.Errorf("%T is not a supported keyspb.Specification.Params type", spec.Params)
+}
+
+func checkEcdsaKeyMatchesParams(key *ecdsa.PrivateKey, params *keyspb.Specification_ECDSA) error {
+	wantCurve := curveFromParams(params)
+	if wantCurve.Params().Name != key.Params().Name {
+		return fmt.Errorf("ECDSA key on %v curve, want %v curve", key.Params().Name, wantCurve.Params().Name)
+	}
+
+	return nil
+}
+
+func checkRsaKeyMatchesParams(key *rsa.PrivateKey, params *keyspb.Specification_RSA) error {
+	wantBits := defaultRsaKeySizeInBits
+	if params.GetBits() != 0 {
+		wantBits = int(params.GetBits())
+	}
+
+	if got, want := key.N.BitLen(), wantBits; got != want {
+		return fmt.Errorf("%v-bit RSA key, want %v-bit", got, want)
+	}
+
+	return nil
 }

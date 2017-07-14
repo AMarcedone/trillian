@@ -73,3 +73,57 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 		}
 	}
 }
+
+func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
+	ctx := context.Background()
+
+	for _, test := range []struct {
+		desc    string
+		keySpec *keyspb.Specification
+		wantErr bool
+	}{
+		{
+			desc: "ECDSA",
+			keySpec: &keyspb.Specification{
+				Params: &keyspb.Specification_EcdsaParams{},
+			},
+		},
+		{
+			desc: "RSA",
+			keySpec: &keyspb.Specification{
+				Params: &keyspb.Specification_RsaParams{},
+			},
+		},
+		{
+			desc:    "No params",
+			keySpec: &keyspb.Specification{},
+			wantErr: true,
+		},
+		{
+			desc:    "Nil KeySpec",
+			wantErr: true,
+		},
+	} {
+		pb, err := NewPrivateKeyProtoFromSpec(ctx, test.keySpec)
+		if gotErr := err != nil; gotErr != test.wantErr {
+			t.Errorf("%v: NewPrivateKeyProtoFromSpec() = (_, %q), want err? %v", test.desc, err, test.wantErr)
+			continue
+		} else if gotErr {
+			continue
+		}
+
+		// Get the key out of the proto, check that it matches the spec and test that it works.
+		key, err := NewFromPrivateKeyProto(ctx, pb)
+		if err != nil {
+			t.Errorf("%v: NewFromPrivateKeyProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
+		}
+
+		if err := checkKeyMatchesSpec(key, test.keySpec); err != nil {
+			t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %v", test.desc, err)
+		}
+
+		if err := signAndVerify(key, key.Public()); err != nil {
+			t.Errorf("%v: signAndVerify(%#v) = %q, want nil")
+		}
+	}
+}
