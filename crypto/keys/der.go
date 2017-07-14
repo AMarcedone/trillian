@@ -55,7 +55,7 @@ func NewPrivateKeyProtoFromSpec(ctx context.Context, spec *keyspb.Specification)
 
 // NewFromPrivateDER reads a DER-encoded private key.
 func NewFromPrivateDER(keyDER []byte) (crypto.Signer, error) {
-	key1, err1 := x509.ParsePKCS1PrivateKey(keyDER)
+	key1, err1 := x509.ParseECPrivateKey(keyDER)
 	if err1 == nil {
 		return key1, nil
 	}
@@ -71,12 +71,12 @@ func NewFromPrivateDER(keyDER []byte) (crypto.Signer, error) {
 		return nil, fmt.Errorf("der: unsupported private key type: %T", key2)
 	}
 
-	key3, err3 := x509.ParseECPrivateKey(keyDER)
+	key3, err3 := x509.ParsePKCS1PrivateKey(keyDER)
 	if err3 == nil {
 		return key3, nil
 	}
 
-	return nil, fmt.Errorf("der: could not parse private key as PKCS1 (%v), PKCS8 (%v), or SEC1 (%v)", err1, err2, err3)
+	return nil, fmt.Errorf("der: could not parse private key as SEC1 (%v), PKCS8 (%v) or PKCS1 (%v)", err1, err2, err3)
 }
 
 // NewFromPublicDER reads a DER-encoded public key.
