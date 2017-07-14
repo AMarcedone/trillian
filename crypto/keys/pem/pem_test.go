@@ -57,9 +57,9 @@ NHcCAQEEIHG5m/q2sUSa4P8pRZgYt3K0ESFSKp1qp15VjJhpLle4oAoGCCqGSM49AwEHoUQDQgAEvuyn
 `
 )
 
-func TestPEMKeyFileProtoHandler(t *testing.T) {
+func TestProtoHandler(t *testing.T) {
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PEMKeyFile{}, PEMKeyFileProtoHandler())
+	sf.AddHandler(&keyspb.PEMKeyFile{}, ProtoHandler())
 
 	ctx := context.Background()
 

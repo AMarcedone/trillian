@@ -102,7 +102,7 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.ProtoHandler())
 	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.ProtoHandler())
 
 	registry := extension.Registry{
