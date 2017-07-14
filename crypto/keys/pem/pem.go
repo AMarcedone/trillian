@@ -35,14 +35,14 @@ import (
 func PEMKeyFileProtoHandler() keys.ProtoHandler {
 	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
 		if f, ok := pb.(*keyspb.PEMKeyFile); ok {
-			return NewFromPEMKeyFileProto(f)
+			return FromProto(f)
 		}
 		return nil, fmt.Errorf("pemfile: got %T, want *keyspb.PEMKeyFile", pb)
 	}
 }
 
-// NewFromPEMKeyFileProto takes a PEMKeyFile protobuf message and loads the private key it specifies.
-func NewFromPEMKeyFileProto(pb *keyspb.PEMKeyFile) (crypto.Signer, error) {
+// FromProto takes a PEMKeyFile protobuf message and loads the private key it specifies.
+func FromProto(pb *keyspb.PEMKeyFile) (crypto.Signer, error) {
 	return ReadPrivateKeyFile(pb.GetPath(), pb.GetPassword())
 }
 
