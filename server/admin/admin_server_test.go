@@ -180,7 +180,7 @@ func TestServer_ListTrees(t *testing.T) {
 
 		setup := setupAdminServer(
 			ctrl,
-			keys.NewSignerFactory(),
+			nil,           // keygen
 			true,          // snapshot
 			!test.listErr, // shouldCommit
 			test.commitErr)
@@ -251,7 +251,7 @@ func TestServer_GetTree(t *testing.T) {
 	for _, test := range tests {
 		setup := setupAdminServer(
 			ctrl,
-			keys.NewSignerFactory(),
+			nil,          /* keygen */
 			true,         /* snapshot */
 			!test.getErr, /* shouldCommit */
 			test.commitErr)
@@ -348,6 +348,7 @@ func TestServer_CreateTree(t *testing.T) {
 	tests := []struct {
 		desc                  string
 		req                   *trillian.CreateTreeRequest
+		wantKeyGenerator      bool
 		createErr             error
 		commitErr, wantCommit bool
 		wantErr               string
@@ -380,7 +381,18 @@ func TestServer_CreateTree(t *testing.T) {
 					Params: &keyspb.Specification_EcdsaParams{},
 				},
 			},
-			wantCommit: true,
+			wantKeyGenerator: true,
+			wantCommit:       true,
+		},
+		{
+			desc: "privateKeySpecButNoKeyGenerator",
+			req: &trillian.CreateTreeRequest{
+				Tree: &omittedKeys,
+				KeySpec: &keyspb.Specification{
+					Params: &keyspb.Specification_EcdsaParams{},
+				},
+			},
+			wantErr: "key generation is not enabled",
 		},
 		{
 			// Tree specifies ECDSA signatures, but key specification provides RSA parameters.
@@ -391,7 +403,8 @@ func TestServer_CreateTree(t *testing.T) {
 					Params: &keyspb.Specification_RsaParams{},
 				},
 			},
-			wantErr: "signature not supported by signer",
+			wantKeyGenerator: true,
+			wantErr:          "signature not supported by signer",
 		},
 		{
 			desc: "privateKeySpecAndPrivateKeyProvided",
@@ -401,7 +414,8 @@ func TestServer_CreateTree(t *testing.T) {
 					Params: &keyspb.Specification_EcdsaParams{},
 				},
 			},
-			wantErr: "private_key and key_spec fields are mutually exclusive",
+			wantKeyGenerator: true,
+			wantErr:          "private_key and key_spec fields are mutually exclusive",
 		},
 		{
 			desc: "privateKeySpecAndPublicKeyProvided",
@@ -411,7 +425,8 @@ func TestServer_CreateTree(t *testing.T) {
 					Params: &keyspb.Specification_EcdsaParams{},
 				},
 			},
-			wantErr: "public_key and key_spec fields are mutually exclusive",
+			wantKeyGenerator: true,
+			wantErr:          "public_key and key_spec fields are mutually exclusive",
 		},
 		{
 			desc:       "omittedPublicKey",
@@ -455,7 +470,7 @@ func TestServer_CreateTree(t *testing.T) {
 
 	ctx := context.Background()
 	for _, test := range tests {
-		sf := keys.NewSignerFactory()
+		var keygen keys.ProtoGenerator
 
 		var privateKey crypto.Signer = ecdsaPrivateKey
 		// If KeySpec is set, select the correct type of key to "generate".
@@ -470,15 +485,17 @@ func TestServer_CreateTree(t *testing.T) {
 				continue
 			}
 
-			// Setup a fake key generator. If it receives the expected KeySpec, it returns wantKeyProto,
-			// which a keys.ProtoHandler will expect to receive later on.
-			sf.Generate = fakeKeyProtoGenerator(test.req.GetKeySpec(), wantKeyProto)
+			if test.wantKeyGenerator {
+				// Setup a fake key generator. If it receives the expected KeySpec, it returns wantKeyProto,
+				// which a keys.ProtoHandler will expect to receive later on.
+				keygen = fakeKeyProtoGenerator(test.req.GetKeySpec(), wantKeyProto)
+			}
 		}
 
 		keys.RegisterHandler(fakeKeyProtoHandler(wantKeyProto, privateKey))
 		defer keys.UnregisterHandler(wantKeyProto)
 
-		setup := setupAdminServer(ctrl, sf, false /* snapshot */, test.wantCommit, test.commitErr)
+		setup := setupAdminServer(ctrl, keygen, false /* snapshot */, test.wantCommit, test.commitErr)
 		tx := setup.tx
 		s := setup.server
 		nowPB, _ := ptypes.TimestampProto(time.Now())
@@ -621,7 +638,7 @@ func TestServer_UpdateTree(t *testing.T) {
 	for _, test := range tests {
 		setup := setupAdminServer(
 			ctrl,
-			keys.NewSignerFactory(),
+			nil,   /* keygen */
 			false, /* snapshot */
 			test.wantCommit,
 			test.commitErr)
@@ -668,7 +685,7 @@ type adminTestSetup struct {
 // Storage will be set to use either snapshots or regular TXs via snapshot parameter.
 // Whether the snapshot/TX is expected to be committed (and if it should error doing so) is
 // controlled via shouldCommit and commitErr parameters.
-func setupAdminServer(ctrl *gomock.Controller, sf keys.SignerFactory, snapshot, shouldCommit, commitErr bool) adminTestSetup {
+func setupAdminServer(ctrl *gomock.Controller, keygen keys.ProtoGenerator, snapshot, shouldCommit, commitErr bool) adminTestSetup {
 	as := storage.NewMockAdminStorage(ctrl)
 
 	var snapshotTX *storage.MockReadOnlyAdminTX
@@ -698,8 +715,8 @@ func setupAdminServer(ctrl *gomock.Controller, sf keys.SignerFactory, snapshot, 
 	}
 
 	registry := extension.Registry{
-		AdminStorage:  as,
-		SignerFactory: sf,
+		AdminStorage: as,
+		NewKeyProto:  keygen,
 	}
 
 	s := &Server{registry}
@@ -716,7 +733,7 @@ func fakeKeyProtoHandler(wantKeyProto proto.Message, key crypto.Signer) (proto.M
 	}
 }
 
-func fakeKeyProtoGenerator(wantKeySpec *keyspb.Specification, keyProto proto.Message) keys.ProtoGenerator {
+func fakeKeyProtoGenerator(wantKeySpec *keyspb.Specification, keyProto proto.Message) func(context.Context, *keyspb.Specification) (proto.Message, error) {
 	return func(ctx context.Context, gotKeySpec *keyspb.Specification) (proto.Message, error) {
 		if !proto.Equal(gotKeySpec, wantKeySpec) {
 			return nil, fmt.Errorf("SignerFactory.Generate(_, %#v) called, want SignerFactory.Generate(_, %#v)", gotKeySpec, wantKeySpec)

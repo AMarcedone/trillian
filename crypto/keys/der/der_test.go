@@ -15,7 +15,6 @@
 package der_test
 
 import (
-	"context"
 	"encoding/base64"
 	"testing"
 
@@ -71,8 +70,6 @@ func TestFromProto(t *testing.T) {
 }
 
 func TestNewProtoFromSpec(t *testing.T) {
-	ctx := context.Background()
-
 	for _, test := range []struct {
 		desc    string
 		keySpec *keyspb.Specification
@@ -100,7 +97,7 @@ func TestNewProtoFromSpec(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		pb, err := NewProtoFromSpec(ctx, test.keySpec)
+		pb, err := NewProtoFromSpec(test.keySpec)
 		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("%v: NewProtoFromSpec() = (_, %q), want err? %v", test.desc, err, test.wantErr)
 			continue
@@ -108,22 +105,18 @@ func TestNewProtoFromSpec(t *testing.T) {
 			continue
 		}
 
-		if pb, ok := pb.(*keyspb.PrivateKey); ok {
-			// Get the key out of the proto, check that it matches the spec and test that it works.
-			key, err := FromProto(pb)
-			if err != nil {
-				t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
-			}
+		// Get the key out of the proto, check that it matches the spec and test that it works.
+		key, err := FromProto(pb)
+		if err != nil {
+			t.Errorf("%v: FromProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
+		}
 
-			if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {
-				t.Errorf("%v: NewProtoFromSpec() => %v", test.desc, err)
-			}
+		if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {
+			t.Errorf("%v: NewProtoFromSpec() => %v", test.desc, err)
+		}
 
-			if err := testonly.SignAndVerify(key, key.Public()); err != nil {
-				t.Errorf("%v: SignAndVerify() = %q, want nil")
-			}
-		} else {
-			t.Errorf("%v: NewProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)
+		if err := testonly.SignAndVerify(key, key.Public()); err != nil {
+			t.Errorf("%v: SignAndVerify() = %q, want nil", test.desc, err)
 		}
 	}
 }

@@ -17,7 +17,6 @@
 package extension
 
 import (
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/quota"
 	"github.com/google/trillian/storage"
@@ -34,8 +33,6 @@ type Registry struct {
 	storage.LogStorage
 	// MapStorage is the storage implementation to use for persisting maps.
 	storage.MapStorage
-	// SignerFactory provides the keys used for generating signatures for each tree.
-	keys.SignerFactory
 	// ElectionFactory provides MasterElection instances for each tree.
 	util.ElectionFactory
 	// QuotaManager provides rate limiting capabilities for Trillian.

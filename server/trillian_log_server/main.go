@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	_ "net/http/pprof"
 
@@ -26,8 +27,10 @@ import (
 	_ "github.com/google/trillian/crypto/keys/der/proto"
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
+	"github.com/google/trillian/crypto/keyspb"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
 	"github.com/google/trillian/crypto/keys"
@@ -42,7 +45,6 @@ import (
 	"github.com/google/trillian/server/interceptor"
 	"github.com/google/trillian/storage/mysql"
 	"github.com/google/trillian/util"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -91,13 +93,13 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory := keys.NewSignerFactory()
-	signerFactory.Generate = der.NewProtoFromSpec
+	keys.Generate = func(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+		return der.NewProtoFromSpec(spec)
+	}
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
 		LogStorage:    mysql.NewLogStorage(db, mf),
-		SignerFactory: signerFactory,
 		QuotaManager:  &mysqlq.QuotaManager{DB: db, MaxUnsequencedRows: *maxUnsequencedRows},
 		MetricFactory: mf,
 	}

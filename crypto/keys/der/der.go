@@ -15,14 +15,12 @@
 package der
 
 import (
-	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 )
@@ -34,7 +32,7 @@ func FromProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
 
 // NewProtoFromSpec creates a new private key based on a key specification.
 // It returns a PrivateKey protobuf message that contains the private key.
-func NewProtoFromSpec(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+func NewProtoFromSpec(spec *keyspb.Specification) (*keyspb.PrivateKey, error) {
 	key, err := keys.NewFromSpec(spec)
 	if err != nil {
 		return nil, fmt.Errorf("der: error generating key: %v", err)
