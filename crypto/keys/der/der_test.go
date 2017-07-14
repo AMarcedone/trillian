@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keys
+package der_test
 
 import (
 	"context"
@@ -20,6 +20,9 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keys"
+	. "github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/testonly"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
@@ -30,7 +33,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 		t.Fatalf("Could not decode test key: %v", err)
 	}
 
-	sf := NewSignerFactory()
+	sf := keys.NewSignerFactory()
 	sf.AddHandler(&keyspb.PrivateKey{}, PrivateKeyProtoHandler())
 
 	ctx := context.Background()
@@ -68,8 +71,8 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 		}
 
 		// Check that the returned signer can produce signatures successfully.
-		if err := signAndVerify(signer, signer.Public()); err != nil {
-			t.Errorf("%v: signAndVerify(%#v) = %#v, want nil", test.desc, signer, err)
+		if err := testonly.SignAndVerify(signer, signer.Public()); err != nil {
+			t.Errorf("%v: SignAndVerify() = %q, want nil", test.desc, err)
 		}
 	}
 }
@@ -119,12 +122,12 @@ func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
 				t.Errorf("%v: NewFromPrivateKeyProto(%#v) = (_, %q), want (_, nil)", test.desc, pb, err)
 			}
 
-			if err := checkKeyMatchesSpec(key, test.keySpec); err != nil {
+			if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {
 				t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %v", test.desc, err)
 			}
 
-			if err := signAndVerify(key, key.Public()); err != nil {
-				t.Errorf("%v: signAndVerify(%#v) = %q, want nil")
+			if err := testonly.SignAndVerify(key, key.Public()); err != nil {
+				t.Errorf("%v: SignAndVerify() = %q, want nil")
 			}
 		} else {
 			t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)

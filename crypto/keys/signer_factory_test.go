@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keys
+package keys_test
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	. "github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/testonly"
 )
 
@@ -32,7 +34,7 @@ func fakeHandler(signer crypto.Signer, err error) ProtoHandler {
 }
 
 func TestNewSigner(t *testing.T) {
-	wantSigner, err := NewFromPrivatePEM(testonly.DemoPrivateKey, testonly.DemoPrivateKeyPass)
+	wantSigner, err := pem.NewFromPrivatePEM(testonly.DemoPrivateKey, testonly.DemoPrivateKeyPass)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test private key: %v", err)
 	}

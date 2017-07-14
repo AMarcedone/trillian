@@ -20,7 +20,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
@@ -54,12 +55,12 @@ func init() {
 }
 
 func readPrivatePEMFile(path, password string) (*keyspb.PrivateKey, error) {
-	key, err := keys.NewFromPrivatePEMFile(path, password)
+	key, err := pem.NewFromPrivatePEMFile(path, password)
 	if err != nil {
 		return nil, fmt.Errorf("error reading reading private key file: %v", err)
 	}
 
-	der, err := keys.MarshalPrivateKey(key)
+	der, err := der.MarshalPrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling private key as DER: %v", err)
 	}

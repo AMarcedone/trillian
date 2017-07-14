@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/letsencrypt/pkcs11key"
 )
@@ -47,7 +48,7 @@ func FromConfig(modulePath string, config *keyspb.PKCS11Config) (crypto.Signer, 
 	}
 
 	pubKeyPEM := config.GetPublicKey()
-	pubKey, err := keys.NewFromPublicPEM(pubKeyPEM)
+	pubKey, err := pem.NewFromPublicPEM(pubKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11: error loading public key from %q: %v", pubKeyPEM, err)
 	}

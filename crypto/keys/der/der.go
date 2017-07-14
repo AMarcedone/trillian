@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keys
+package der
 
 import (
 	"context"
@@ -23,13 +23,14 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-// PrivateKeyFileProtoHandler returns a ProtoHandler for PrivateKey protobuf messages.
-// This ProtoHandler will extract the DER-encoded private key held within the protobuf message.
+// PEMKeyFileProtoHandler returns a ProtoHandler for PEMKeyFile protobuf messages.
+// This ProtoHandler will read a key from a file specified in a PEMKeyFile protobuf message.
 // It can be passed to SignerFactory.AddHandler().
-func PrivateKeyProtoHandler() ProtoHandler {
+func PrivateKeyProtoHandler() keys.ProtoHandler {
 	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
 		if k, ok := pb.(*keyspb.PrivateKey); ok {
 			return NewFromPrivateKeyProto(k)
@@ -48,7 +49,7 @@ func NewFromPrivateKeyProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
 // This protobuf message can be passed to SignerFactory.NewSigner() to get a crypto.Signer,
 // if a compatible handler is installed (see AddHandler()).
 func NewPrivateKeyProtoFromSpec(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
-	key, err := NewFromSpec(spec)
+	key, err := keys.NewFromSpec(spec)
 	if err != nil {
 		return nil, fmt.Errorf("der: error generating key: %v", err)
 	}

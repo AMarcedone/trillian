@@ -29,6 +29,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
 	ktestonly "github.com/google/trillian/crypto/keys/testonly"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
@@ -80,7 +82,7 @@ func NewLogEnv(ctx context.Context, numSequencers int, testID string) (*LogEnv, 
 	}
 
 	sf := keys.NewSignerFactory()
-	sf.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
+	sf.AddHandler(&keyspb.PrivateKey{}, der.PrivateKeyProtoHandler())
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),
@@ -148,7 +150,7 @@ func NewLogEnvWithRegistry(ctx context.Context, numSequencers int, testID string
 		return nil, err
 	}
 
-	publicKey, err := keys.NewFromPublicPEM(publicKey)
+	publicKey, err := pem.NewFromPublicPEM(publicKey)
 	if err != nil {
 		cancel()
 		return nil, err

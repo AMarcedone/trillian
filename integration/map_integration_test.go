@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"google.golang.org/grpc"
 )
 
@@ -43,7 +43,7 @@ func TestLiveMapIntegration(t *testing.T) {
 	if *mapID == -1 {
 		t.Skip("Map integration test skipped as no map ID provided")
 	}
-	pubKey, err := keys.NewFromPublicPEMFile(*pubKeyPath)
+	pubKey, err := pem.NewFromPublicPEMFile(*pubKeyPath)
 	if err != nil {
 		t.Fatalf("No public key provided")
 	}

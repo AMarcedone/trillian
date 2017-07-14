@@ -57,7 +57,8 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/trillian"
 	tc "github.com/google/trillian/crypto"
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/log"
@@ -174,34 +175,34 @@ func sequence(treeID int64, seq *log.Sequencer, count int) {
 	}
 }
 
-func getPrivateKey(pemPath, pemPassword string) (*any.Any, crypto.Signer) {
-	pemSigner, err := keys.NewFromPrivatePEM(pemPath, pemPassword)
+func getPrivateKey(keyPEM, password string) (*any.Any, crypto.Signer) {
+	key, err := pem.UnmarshalPrivateKey(keyPEM, password)
 	if err != nil {
 		glog.Fatalf("NewFromPrivatePEM(): %v", err)
 	}
-	pemDer, err := keys.MarshalPrivateKey(pemSigner)
+	keyDER, err := der.MarshalPrivateKey(key)
 	if err != nil {
 		glog.Fatalf("MarshalPrivateKey(): %v", err)
 	}
-	anyPrivKey, err := ptypes.MarshalAny(&keyspb.PrivateKey{Der: pemDer})
+	anyPrivKey, err := ptypes.MarshalAny(&keyspb.PrivateKey{Der: keyDER})
 	if err != nil {
-		glog.Fatalf("MarshalAny(%v): %v", pemDer, err)
+		glog.Fatalf("MarshalAny(%v): %v", keyDER, err)
 	}
 
-	return anyPrivKey, pemSigner
+	return anyPrivKey, key
 }
 
-func getPublicKey(pem string) []byte {
-	key, err := keys.NewFromPublicPEM(pem)
+func getPublicKey(keyPEM string) []byte {
+	key, err := pem.UnmarshalPublicKey(keyPEM)
 	if err != nil {
 		panic(err)
 	}
 
-	der, err := x509.MarshalPKIXPublicKey(key)
+	keyDER, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		panic(err)
 	}
-	return der
+	return keyDER
 }
 
 func createTree(as storage.AdminStorage) (*trillian.Tree, crypto.Signer) {

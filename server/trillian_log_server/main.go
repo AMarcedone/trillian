@@ -26,6 +26,8 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/cmd"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/extension"
 	_ "github.com/google/trillian/merkle/objhasher" // Load hashers
@@ -88,9 +90,9 @@ func main() {
 
 	mf := prometheus.MetricFactory{}
 
-	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, keys.PEMKeyFileProtoHandler())
-	signerFactory.AddHandler(&keyspb.PrivateKey{}, keys.PrivateKeyProtoHandler())
-	signerFactory.Generate = keys.NewPrivateKeyProtoFromSpec
+	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.PEMKeyFileProtoHandler())
+	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.PrivateKeyProtoHandler())
+	signerFactory.Generate = der.NewPrivateKeyProtoFromSpec
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

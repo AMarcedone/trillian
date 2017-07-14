@@ -17,7 +17,7 @@ package crypto
 import (
 	"testing"
 
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/testonly"
 )
@@ -58,7 +58,7 @@ func TestSignVerify(t *testing.T) {
 		},
 	} {
 
-		key, err := keys.NewFromPrivatePEM(test.pem, test.password)
+		key, err := pem.NewFromPrivatePEM(test.pem, test.password)
 		if err != nil {
 			t.Errorf("%s: LoadPrivateKey(_, %q)=%v, want nil", test.name, test.password, err)
 			continue
