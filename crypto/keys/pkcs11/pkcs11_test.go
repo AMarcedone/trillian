@@ -14,17 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package pkcs11
 
-import (
-	"flag"
+import "testing"
 
-	"github.com/google/trillian/crypto/keys/pkcs11"
-	"github.com/google/trillian/crypto/keyspb"
-)
-
-var pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-
-func init() {
-	signerFactory.AddHandler(&keyspb.PKCS11Config{}, pkcs11.ProtoHandler(pkcs11ModulePath))
+func TestPkcs11(t *testing.T) {
+	// PKCS11Config support is tested by integration/log_integration.sh (when $WITH_PKCS11 == "true").
+	t.Skip("Only integration testing is implemented for PKCS#11")
 }

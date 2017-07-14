@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package keys
+package pkcs11
 
 import (
 	"context"
@@ -23,30 +23,31 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/letsencrypt/pkcs11key"
 )
 
-// Pkcs11ConfigProtoHandler returns a ProtoHandler configured to use the specified PKCS#11 modulePath.
+// ProtoHandler returns a ProtoHandler configured to use the specified PKCS#11 modulePath.
 // This ProtoHandler will retrieve keys as specified by PKCS11Config proto messages.
 // It can be passed to SignerFactory.AddHandler().
-func Pkcs11ConfigProtoHandler(modulePath *string) ProtoHandler {
+func ProtoHandler(modulePath *string) keys.ProtoHandler {
 	return func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
 		if cfg, ok := pb.(*keyspb.PKCS11Config); ok {
-			return NewFromPKCS11Config(*modulePath, cfg)
+			return FromConfig(*modulePath, cfg)
 		}
 		return nil, fmt.Errorf("pkcs11: got %T, want *keyspb.PKCS11Config", pb)
 	}
 }
 
-// NewFromPKCS11Config returns a crypto.Signer that uses a PKCS#11 interface.
-func NewFromPKCS11Config(modulePath string, config *keyspb.PKCS11Config) (crypto.Signer, error) {
+// FromConfig returns a crypto.Signer that uses a PKCS#11 interface.
+func FromConfig(modulePath string, config *keyspb.PKCS11Config) (crypto.Signer, error) {
 	if modulePath == "" {
 		return nil, errors.New("pkcs11: No module path")
 	}
 
 	pubKeyPEM := config.GetPublicKey()
-	pubKey, err := NewFromPublicPEM(pubKeyPEM)
+	pubKey, err := keys.NewFromPublicPEM(pubKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11: error loading public key from %q: %v", pubKeyPEM, err)
 	}

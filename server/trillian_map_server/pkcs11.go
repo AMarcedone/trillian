@@ -19,12 +19,12 @@ package main
 import (
 	"flag"
 
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pkcs11"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
 var pkcs11ModulePath = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
 
 func init() {
-	signerFactory.AddHandler(&keyspb.PKCS11Config{}, keys.Pkcs11ConfigProtoHandler(pkcs11ModulePath))
+	signerFactory.AddHandler(&keyspb.PKCS11Config{}, pkcs11.ProtoHandler(pkcs11ModulePath))
 }
