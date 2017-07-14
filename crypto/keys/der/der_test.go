@@ -77,7 +77,7 @@ func TestPrivateKeyProtoHandler(t *testing.T) {
 	}
 }
 
-func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
+func TestNewProtoFromSpec(t *testing.T) {
 	ctx := context.Background()
 
 	for _, test := range []struct {
@@ -107,9 +107,9 @@ func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		pb, err := NewPrivateKeyProtoFromSpec(ctx, test.keySpec)
+		pb, err := NewProtoFromSpec(ctx, test.keySpec)
 		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Errorf("%v: NewPrivateKeyProtoFromSpec() = (_, %q), want err? %v", test.desc, err, test.wantErr)
+			t.Errorf("%v: NewProtoFromSpec() = (_, %q), want err? %v", test.desc, err, test.wantErr)
 			continue
 		} else if gotErr {
 			continue
@@ -123,14 +123,14 @@ func TestNewPrivateKeyProtoFromSpec(t *testing.T) {
 			}
 
 			if err := testonly.CheckKeyMatchesSpec(key, test.keySpec); err != nil {
-				t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %v", test.desc, err)
+				t.Errorf("%v: NewProtoFromSpec() => %v", test.desc, err)
 			}
 
 			if err := testonly.SignAndVerify(key, key.Public()); err != nil {
 				t.Errorf("%v: SignAndVerify() = %q, want nil")
 			}
 		} else {
-			t.Errorf("%v: NewPrivateKeyProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)
+			t.Errorf("%v: NewProtoFromSpec() => %T, want *keyspb.PrivateKey", test.desc, pb)
 		}
 	}
 }

@@ -70,7 +70,7 @@ func main() {
 
 	signerFactory.AddHandler(&keyspb.PEMKeyFile{}, pem.PEMKeyFileProtoHandler())
 	signerFactory.AddHandler(&keyspb.PrivateKey{}, der.PrivateKeyProtoHandler())
-	signerFactory.Generate = der.NewPrivateKeyProtoFromSpec
+	signerFactory.Generate = der.NewProtoFromSpec
 
 	registry := extension.Registry{
 		AdminStorage:  mysql.NewAdminStorage(db),

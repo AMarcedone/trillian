@@ -44,11 +44,11 @@ func FromProto(pb *keyspb.PrivateKey) (crypto.Signer, error) {
 	return NewFromPrivateDER(pb.GetDer())
 }
 
-// NewPrivateKeyProtoFromSpec creates a new private key based on a key specification.
+// NewProtoFromSpec creates a new private key based on a key specification.
 // It returns a PrivateKey protobuf message that contains the private key.
 // This protobuf message can be passed to SignerFactory.NewSigner() to get a crypto.Signer,
 // if a compatible handler is installed (see AddHandler()).
-func NewPrivateKeyProtoFromSpec(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
+func NewProtoFromSpec(ctx context.Context, spec *keyspb.Specification) (proto.Message, error) {
 	key, err := keys.NewFromSpec(spec)
 	if err != nil {
 		return nil, fmt.Errorf("der: error generating key: %v", err)
