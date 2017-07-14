@@ -34,7 +34,7 @@ func fakeHandler(signer crypto.Signer, err error) ProtoHandler {
 }
 
 func TestNewSigner(t *testing.T) {
-	wantSigner, err := pem.NewFromPrivatePEM(testonly.DemoPrivateKey, testonly.DemoPrivateKeyPass)
+	wantSigner, err := pem.UnmarshalPrivateKey(testonly.DemoPrivateKey, testonly.DemoPrivateKeyPass)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test private key: %v", err)
 	}
