@@ -133,10 +133,6 @@ func (s *Server) CreateTree(ctx context.Context, request *trillian.CreateTreeReq
 		return nil, status.Errorf(codes.InvalidArgument, "failed to create signer for tree: %v", err.Error())
 	}
 
-	if treeSigAlgo, keySigAlgo := tree.GetSignatureAlgorithm(), crypto.SignatureAlgorithm(signer.Public()); treeSigAlgo != keySigAlgo {
-		return nil, status.Errorf(codes.InvalidArgument, "tree.signature_algorithm = %v, but SignatureAlgorithm(tree.private_key) = %v", treeSigAlgo, keySigAlgo)
-	}
-
 	// Derive the public key that corresponds to the private key for this tree.
 	// The caller may have provided the public key, but for safety we shouldn't rely on it being correct.
 	publicKeyDER, err := x509.MarshalPKIXPublicKey(signer.Public())
