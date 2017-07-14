@@ -181,10 +181,10 @@ func TestLoadPrivateKeyAndSign(t *testing.T) {
 			}
 
 		case test.keyPath != "":
-			k, err = NewFromPrivatePEMFile(test.keyPath, test.keyPass)
+			k, err = ReadPrivateKeyFile(test.keyPath, test.keyPass)
 			switch gotErr := err != nil; {
 			case gotErr != test.wantLoadErr:
-				t.Errorf("%v: NewFromPrivatePEMFile() = (%v, %v), want err? %v", test.desc, k, err, test.wantLoadErr)
+				t.Errorf("%v: ReadPrivateKeyFile() = (%v, %v), want err? %v", test.desc, k, err, test.wantLoadErr)
 				continue
 			case gotErr:
 				continue

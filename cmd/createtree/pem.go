@@ -55,7 +55,7 @@ func init() {
 }
 
 func readPrivatePEMFile(path, password string) (*keyspb.PrivateKey, error) {
-	key, err := pem.NewFromPrivatePEMFile(path, password)
+	key, err := pem.ReadPrivateKeyFile(path, password)
 	if err != nil {
 		return nil, fmt.Errorf("error reading reading private key file: %v", err)
 	}

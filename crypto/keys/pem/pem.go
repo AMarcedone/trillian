@@ -43,12 +43,12 @@ func PEMKeyFileProtoHandler() keys.ProtoHandler {
 
 // NewFromPEMKeyFileProto takes a PEMKeyFile protobuf message and loads the private key it specifies.
 func NewFromPEMKeyFileProto(pb *keyspb.PEMKeyFile) (crypto.Signer, error) {
-	return NewFromPrivatePEMFile(pb.GetPath(), pb.GetPassword())
+	return ReadPrivateKeyFile(pb.GetPath(), pb.GetPassword())
 }
 
-// NewFromPrivatePEMFile reads a PEM-encoded private key from a file.
+// ReadPrivateKeyFile reads a PEM-encoded private key from a file.
 // The key must be protected by a password.
-func NewFromPrivatePEMFile(file, password string) (crypto.Signer, error) {
+func ReadPrivateKeyFile(file, password string) (crypto.Signer, error) {
 	if password == "" {
 		return nil, fmt.Errorf("pemfile: empty password for file %q", file)
 	}
