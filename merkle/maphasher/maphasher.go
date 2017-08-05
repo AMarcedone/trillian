@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian"
 	"github.com/google/trillian/merkle/hashers"
 )
@@ -63,16 +64,20 @@ func (m *MapHasher) HashEmpty(treeID int64, index []byte, height int) []byte {
 	if height < 0 || height >= len(m.nullHashes) {
 		panic(fmt.Sprintf("HashEmpty(%v) out of bounds", height))
 	}
+	depth := m.BitLen() - height
+	glog.V(5).Infof("HashEmpty(%x, %d): %x", index, depth, m.nullHashes[height])
 	return m.nullHashes[height]
 }
 
 // HashLeaf returns the Merkle tree leaf hash of the data passed in through leaf.
 // The hashed structure is leafHashPrefix||leaf.
-func (m *MapHasher) HashLeaf(treeID int64, index []byte, height int, leaf []byte) []byte {
+func (m *MapHasher) HashLeaf(treeID int64, index []byte, leaf []byte) []byte {
 	h := m.New()
 	h.Write([]byte{leafHashPrefix})
 	h.Write(leaf)
-	return h.Sum(nil)
+	r := h.Sum(nil)
+	glog.V(5).Infof("HashLeaf(%x): %x", index, r)
+	return r
 }
 
 // HashChildren returns the internal Merkle tree node hash of the the two child nodes l and r.
@@ -82,7 +87,9 @@ func (m *MapHasher) HashChildren(l, r []byte) []byte {
 	h.Write([]byte{nodeHashPrefix})
 	h.Write(l)
 	h.Write(r)
-	return h.Sum(nil)
+	p := h.Sum(nil)
+	glog.V(5).Infof("HashChildren(%x, %x): %x", l, r, p)
+	return p
 }
 
 // BitLen returns the number of bits in the hash function.
@@ -99,7 +106,7 @@ func (m *MapHasher) initNullHashes() {
 	// There are Size()*8 edges, and Size()*8 + 1 nodes in the tree.
 	nodes := m.Size()*8 + 1
 	r := make([][]byte, nodes, nodes)
-	r[0] = m.HashLeaf(0, nil, m.Size()*8, nil)
+	r[0] = m.HashLeaf(0, nil, nil)
 	for i := 1; i < nodes; i++ {
 		r[i] = m.HashChildren(r[i-1], r[i-1])
 	}

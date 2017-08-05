@@ -88,7 +88,6 @@ func (t *TrillianMapServer) GetLeaves(ctx context.Context, req *trillian.GetMapL
 	inclusions := make([]*trillian.MapLeafInclusion, 0, len(req.Index))
 	found := 0
 	for _, index := range req.Index {
-		// TODO(gdbelvin): specify the index length in the tree specification.
 		if got, want := len(index), hasher.Size(); got != want {
 			return nil, status.Errorf(codes.InvalidArgument,
 				"index len(%x): %v, want %v", index, got, want)
@@ -107,6 +106,7 @@ func (t *TrillianMapServer) GetLeaves(ctx context.Context, req *trillian.GetMapL
 			leaf = &trillian.MapLeaf{
 				Index:     index,
 				LeafValue: nil,
+				LeafHash:  hasher.HashLeaf(mapID, index, nil),
 			}
 		}
 
@@ -167,7 +167,7 @@ func (t *TrillianMapServer) SetLeaves(ctx context.Context, req *trillian.SetMapL
 				"len(%x): %v, want %v", l.Index, got, want)
 		}
 		// TODO(gbelvin) use LeafHash rather than computing here. #423
-		l.LeafHash = hasher.HashLeaf(mapID, l.Index, hasher.BitLen(), l.LeafValue)
+		l.LeafHash = hasher.HashLeaf(mapID, l.Index, l.LeafValue)
 
 		if err = tx.Set(ctx, l.Index, *l); err != nil {
 			return nil, err

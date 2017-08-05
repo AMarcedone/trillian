@@ -16,12 +16,46 @@ package storage
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/google/trillian/testonly"
 )
+
+var h2b = testonly.MustHexDecode
+
+func TestMaskLeft(t *testing.T) {
+	for _, tc := range []struct {
+		index []byte
+		depth int
+		want  []byte
+	}{
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 0, want: h2b("0000000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 1, want: h2b("8000000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 2, want: h2b("C000000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 3, want: h2b("E000000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 4, want: h2b("F000000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 5, want: h2b("F800000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 6, want: h2b("FC00000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 7, want: h2b("FE00000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 8, want: h2b("FF00000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 9, want: h2b("FF80000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 10, want: h2b("FFC0000000000000000000000000000000000000")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 159, want: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")},
+		{index: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"), depth: 160, want: h2b("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")},
+		{index: h2b("000102030405060708090A0B0C0D0E0F10111213"), depth: 1, want: h2b("0000000000000000000000000000000000000000")},
+		{index: h2b("000102030405060708090A0B0C0D0E0F10111213"), depth: 17, want: h2b("0001000000000000000000000000000000000000")},
+		{index: h2b("000102030405060708090A0B0C0D0E0F10111213"), depth: 159, want: h2b("000102030405060708090A0B0C0D0E0F10111212")},
+		{index: h2b("000102030405060708090A0B0C0D0E0F10111213"), depth: 160, want: h2b("000102030405060708090A0B0C0D0E0F10111213")},
+	} {
+		nID := NewNodeIDFromHash(tc.index)
+		if got, want := nID.MaskLeft(tc.depth).Path, tc.want; !bytes.Equal(got, want) {
+			t.Errorf("maskIndex(%x, %v): %x, want %x", tc.index, tc.depth, got, want)
+		}
+	}
+}
 
 func TestNewNodeIDFromBigInt(t *testing.T) {
 	for _, tc := range []struct {
@@ -56,74 +90,59 @@ func TestSplit(t *testing.T) {
 		outPrefix              []byte
 		outSuffixBits          int
 		outSuffix              []byte
+		unusedBytes            int
 	}{
-		{h2b("1234567f"), 32, 3, 8, h2b("123456"), 8, h2b("7f")},
-		{h2b("123456ff"), 29, 3, 8, h2b("123456"), 5, h2b("f8")},
-		{h2b("123456ff"), 25, 3, 8, h2b("123456"), 1, h2b("80")},
-		{h2b("12345678"), 16, 1, 8, h2b("12"), 8, h2b("34")},
-		{h2b("12345678"), 9, 1, 8, h2b("12"), 1, h2b("00")},
-		{h2b("12345678"), 8, 0, 8, h2b(""), 8, h2b("12")},
-		{h2b("12345678"), 7, 0, 8, h2b(""), 7, h2b("12")},
-		{h2b("12345678"), 0, 0, 8, h2b(""), 0, h2b("00")},
-		{h2b("70"), 2, 0, 8, h2b(""), 2, h2b("40")},
-		{h2b("70"), 3, 0, 8, h2b(""), 3, h2b("60")},
-		{h2b("70"), 4, 0, 8, h2b(""), 4, h2b("70")},
-		{h2b("70"), 5, 0, 8, h2b(""), 5, h2b("70")},
-		{h2b("0003"), 16, 1, 8, h2b("00"), 8, h2b("03")},
-		{h2b("0003"), 15, 1, 8, h2b("00"), 7, h2b("02")},
-		{h2b("0001000000000000"), 8, 1, 8, h2b("00"), 8, h2b("01")},
-		{h2b("0100000000000000"), 8, 0, 8, h2b(""), 8, h2b("01")},
+		{h2b("1234567f"), 32, 3, 8, h2b("123456"), 8, h2b("7f"), 0},
+		{h2b("123456ff"), 29, 3, 8, h2b("123456"), 5, h2b("f8"), 0},
+		{h2b("123456ff"), 25, 3, 8, h2b("123456"), 1, h2b("80"), 0},
+		{h2b("12345678"), 16, 1, 8, h2b("12"), 8, h2b("34"), 2},
+		{h2b("12345678"), 9, 1, 8, h2b("12"), 1, h2b("00"), 2},
+		{h2b("12345678"), 8, 0, 8, h2b(""), 8, h2b("12"), 3},
+		{h2b("12345678"), 7, 0, 8, h2b(""), 7, h2b("12"), 3},
+		{h2b("12345678"), 0, 0, 8, h2b(""), 0, h2b("00"), 3},
+		{h2b("70"), 2, 0, 8, h2b(""), 2, h2b("40"), 0},
+		{h2b("70"), 3, 0, 8, h2b(""), 3, h2b("60"), 0},
+		{h2b("70"), 4, 0, 8, h2b(""), 4, h2b("70"), 0},
+		{h2b("70"), 5, 0, 8, h2b(""), 5, h2b("70"), 0},
+		{h2b("0003"), 16, 1, 8, h2b("00"), 8, h2b("03"), 0},
+		{h2b("0003"), 15, 1, 8, h2b("00"), 7, h2b("02"), 0},
+		{h2b("0001000000000000"), 16, 1, 8, h2b("00"), 8, h2b("01"), 6},
+		{h2b("0100000000000000"), 8, 0, 8, h2b(""), 8, h2b("01"), 7},
 		// Map subtree scenarios
-		{h2b("0100000000000000"), 8, 0, 16, h2b(""), 8, h2b("0100")},
-		{h2b("0100000000000000"), 8, 0, 32, h2b(""), 8, h2b("01000000")},
+		{h2b("0100000000000000"), 16, 0, 16, h2b(""), 16, h2b("0100"), 6},
+		{h2b("0100000000000000"), 32, 0, 32, h2b(""), 32, h2b("01000000"), 4},
+		{h2b("0000000000000000000000000000000000000000000000000000000000000001"), 256, 10, 176, h2b("00000000000000000000"), 176, h2b("00000000000000000000000000000000000000000001"), 0},
 	} {
 		n := NewNodeIDFromHash(tc.inPath)
 		n.PrefixLenBits = tc.inPathLenBits
 
 		p, s := n.Split(tc.splitBytes, tc.suffixBits)
 		if got, want := p, tc.outPrefix; !bytes.Equal(got, want) {
-			t.Errorf("%x.Split(%v, %v): prefix %x, want %x",
-				tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
+			t.Errorf("%d, %x.Split(%v, %v): prefix %x, want %x",
+				tc.inPathLenBits, tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
 			continue
 		}
 		if got, want := int(s.Bits), tc.outSuffixBits; got != want {
-			t.Errorf("%x.Split(%v, %v): suffix.Bits %v, want %d",
-				tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
+			t.Errorf("%d, %x.Split(%v, %v): suffix.Bits %v, want %d",
+				tc.inPathLenBits, tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
 			continue
 		}
 		if got, want := s.Path, tc.outSuffix; !bytes.Equal(got, want) {
-			t.Errorf("%x.Split(%v, %v).Path: %x, want %x",
-				tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
+			t.Errorf("%d, %x.Split(%v, %v).Path: %x, want %x",
+				tc.inPathLenBits, tc.inPath, tc.splitBytes, tc.suffixBits, got, want)
+			continue
 		}
-	}
-}
 
-func TestNewNodeIDFromRelativeBigInt(t *testing.T) {
-	for _, tc := range []struct {
-		prefix     []byte
-		depth      int
-		index      int64
-		subDepth   int
-		totalDepth int
-		wantPath   []byte
-		wantDepth  int
-	}{
-		{prefix: h2b(""), depth: 8, index: 0, subDepth: 8, totalDepth: 64, wantPath: h2b("0000000000000000"), wantDepth: 8},
-		{prefix: h2b(""), depth: 8, index: 1, subDepth: 8, totalDepth: 64, wantPath: h2b("0100000000000000"), wantDepth: 8},
-		{prefix: h2b("00"), depth: 7, index: 1, subDepth: 8, totalDepth: 64, wantPath: h2b("0001000000000000"), wantDepth: 15},
-		{prefix: h2b("00"), depth: 8, index: 1, subDepth: 8, totalDepth: 64, wantPath: h2b("0001000000000000"), wantDepth: 16},
-		{prefix: h2b("00"), depth: 16, index: 257, subDepth: 16, totalDepth: 64, wantPath: h2b("0001010000000000"), wantDepth: 24},
-		{prefix: h2b("12345678"), depth: 8, index: 1, subDepth: 8, totalDepth: 64, wantPath: h2b("1234567801000000"), wantDepth: 40},
-	} {
-		i := big.NewInt(tc.index)
-		n := NewNodeIDFromRelativeBigInt(tc.prefix, tc.depth, i, tc.totalDepth)
-		if got, want := n.Path, tc.wantPath; !bytes.Equal(got, want) {
-			t.Errorf("NewNodeIDFromRelativeBigInt(%x, %v, %v, %v, %v).Path: %x, want %x",
-				tc.prefix, tc.depth, tc.index, tc.subDepth, tc.totalDepth, got, want)
+		newNode := NewNodeIDFromPrefixSuffix(p, s, len(tc.inPath)*8)
+		want := []byte{}
+		want = append(want, tc.outPrefix...)
+		want = append(want, tc.outSuffix...)
+		want = append(want, make([]byte, tc.unusedBytes)...)
+		if got, want := newNode.Path, want; !bytes.Equal(got, want) {
+			t.Errorf("NewNodeIDFromPrefix(%x, %v).Path: %x, want %x", p, s, got, want)
 		}
-		if got, want := n.PrefixLenBits, tc.wantDepth; got != want {
-			t.Errorf("NewNodeIDFromRelativeBigInt(%x, %v, %v, %v, %v).Depth: %v, want %v",
-				tc.prefix, tc.depth, tc.index, tc.subDepth, tc.totalDepth, got, want)
+		if got, want := newNode.PrefixLenBits, n.PrefixLenBits; got != want {
+			t.Errorf("NewNodeIDFromPrefix(%x, %v).PrefixLenBits: %x, want %x", p, s, got, want)
 		}
 	}
 }
@@ -209,11 +228,9 @@ func TestNewNodeIDForTreeCoords(t *testing.T) {
 		{0, 0x00, 8, false, "00000000"},
 		{0, 0x01, 8, false, "00000001"},
 		{1, 0x01, 8, false, "0000001"},
-		{0, 0x01, 15, false, "000000000000001"},
 		{0, 0x01, 16, false, "0000000000000001"},
 		{2, 0x04, 8, false, "000100"},
 		{8, 0x01, 16, false, "00000001"},
-		{8, 0x01, 9, false, "1"},
 		{0, 0x80, 8, false, "10000000"},
 		{0, 0x01, 64, false, "0000000000000000000000000000000000000000000000000000000000000001"},
 		{63, 0x01, 64, false, "1"},
@@ -263,6 +280,31 @@ func TestSetBit(t *testing.T) {
 		n.SetBit(tc.i, tc.b)
 		if got, want := n.Path, tc.want; !bytes.Equal(got, want) {
 			t.Errorf("%x.SetBit(%v,%v): %v, want %v", tc.n.Path, tc.i, tc.b, got, want)
+		}
+	}
+}
+
+func TestFlipBit(t *testing.T) {
+	for _, tc := range []struct {
+		index []byte
+		i     int
+		want  []byte
+	}{
+		{index: h2b("00"), i: 0, want: h2b("01")},
+		{index: h2b("00"), i: 7, want: h2b("80")},
+		{index: h2b("000b"), i: 0, want: h2b("000a")},
+		{index: h2b("000b"), i: 1, want: h2b("0009")},
+		{index: h2b("000b"), i: 2, want: h2b("000f")},
+		{index: h2b("000b"), i: 3, want: h2b("0003")},
+		{index: h2b("0001"), i: 0, want: h2b("0000")},
+		{index: h2b("8000"), i: 15, want: h2b("0000")},
+		{index: h2b("0000000000000001"), i: 0, want: h2b("0000000000000000")},
+		{index: h2b("0000000000010000"), i: 16, want: h2b("0000000000000000")},
+		{index: h2b("8000000000000000"), i: 63, want: h2b("0000000000000000")},
+	} {
+		nID := NewNodeIDFromHash(tc.index)
+		if got, want := nID.FlipRightBit(tc.i).Path, tc.want; !bytes.Equal(got, want) {
+			t.Errorf("flipBit(%x, %d): %x, want %x", tc.index, tc.i, got, want)
 		}
 	}
 }
@@ -459,13 +501,4 @@ func h26(h string) uint64 {
 		panic(err)
 	}
 	return i
-}
-
-// h2b converts a hex string into []byte.
-func h2b(h string) []byte {
-	b, err := hex.DecodeString(h)
-	if err != nil {
-		panic("invalid hex string")
-	}
-	return b
 }

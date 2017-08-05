@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian/storage/storagepb"
 )
 
@@ -60,7 +61,11 @@ type NodeID struct {
 	// e.g. if Path contains two bytes, and PrefixLenBits is 9, then the 8 bits
 	// in Path[0] are included, along with the lowest bit of Path[1]
 	PrefixLenBits int
-	PathLenBits   int
+}
+
+// PathLenBits returns 8 * len(path).
+func (n NodeID) PathLenBits() int {
+	return len(n.Path) * 8
 }
 
 // bytesForBits returns the number of bytes required to store numBits bits.
@@ -72,7 +77,6 @@ func bytesForBits(numBits int) int {
 func NewNodeIDFromHash(h []byte) NodeID {
 	return NodeID{
 		Path:          h,
-		PathLenBits:   len(h) * 8,
 		PrefixLenBits: len(h) * 8,
 	}
 }
@@ -80,10 +84,12 @@ func NewNodeIDFromHash(h []byte) NodeID {
 // NewEmptyNodeID creates a new zero-length NodeID with sufficient underlying
 // capacity to store a maximum of maxLenBits.
 func NewEmptyNodeID(maxLenBits int) NodeID {
+	if got, want := maxLenBits%8, 0; got != want {
+		panic(fmt.Sprintf("storeage: NewEmptyNodeID() maxLenBits mod 8: %v, want %v", got, want))
+	}
 	return NodeID{
-		Path:          make([]byte, bytesForBits(maxLenBits)),
+		Path:          make([]byte, maxLenBits/8),
 		PrefixLenBits: 0,
-		PathLenBits:   maxLenBits,
 	}
 }
 
@@ -121,26 +127,6 @@ func NewNodeIDFromPrefix(prefix []byte, depth int, index int64, subDepth, totalD
 	return NodeID{
 		Path:          path,
 		PrefixLenBits: len(prefix)*8 + depth,
-		PathLenBits:   len(path) * 8,
-	}
-}
-
-// NewNodeIDFromRelativeBigInt returns a NodeID given by a prefix and a subtree index.
-// depth is the number of significant bits in subIndex, counting from the MSB.
-// subIndex is the path from the root of the subtree to the desired node, and continuing down to the bottom of the subtree.
-// subIndex = horizontal index << height.
-func NewNodeIDFromRelativeBigInt(prefix []byte, depth int, subIndex *big.Int, totalDepth int) NodeID {
-	// Put prefix in the MSB bits of path.
-	path := make([]byte, totalDepth/8)
-	copy(path, prefix)
-
-	// Copy subIndex into path.
-	copy(path[len(prefix):], subIndex.Bytes())
-
-	return NodeID{
-		Path:          path,
-		PrefixLenBits: len(prefix)*8 + depth,
-		PathLenBits:   len(path) * 8,
 	}
 }
 
@@ -158,12 +144,18 @@ func NewNodeIDFromBigInt(depth int, index *big.Int, totalDepth int) NodeID {
 	copy(path[unusedHighBytes:], index.Bytes())
 
 	// TODO(gdbelvin): consider masking off insignificant bits past depth.
+	glog.V(5).Infof("NewNodeIDFromBigInt(%v, %x, %v): %v, %x",
+		depth, index.Bytes(), totalDepth, depth, path)
 
 	return NodeID{
 		Path:          path,
 		PrefixLenBits: depth,
-		PathLenBits:   len(path) * 8,
 	}
+}
+
+// BigInt returns the big.Int for this node.
+func (n NodeID) BigInt() *big.Int {
+	return new(big.Int).SetBytes(n.Path)
 }
 
 // NewNodeIDWithPrefix creates a new NodeID of nodeIDLen bits with the prefixLen MSBs set to prefix.
@@ -178,7 +170,6 @@ func NewNodeIDWithPrefix(prefix uint64, prefixLenBits, nodeIDLenBits, maxLenBits
 	p := NodeID{
 		Path:          make([]byte, maxLenBytes),
 		PrefixLenBits: nodeIDLenBits,
-		PathLenBits:   maxLenBits,
 	}
 
 	bit := maxLenBits - prefixLenBits
@@ -212,8 +203,10 @@ func bitLen(x int64) int {
 // NodeID will be zero padded on the right by depth places.
 func NewNodeIDForTreeCoords(depth int64, index int64, maxPathBits int) (NodeID, error) {
 	bl := bitLen(index)
-	if index < 0 || depth < 0 || bl > int(maxPathBits-int(depth)) {
-		return NodeID{}, fmt.Errorf("depth/index combination out of range: depth=%d index=%d", depth, index)
+	if index < 0 || depth < 0 ||
+		bl > int(maxPathBits-int(depth)) ||
+		maxPathBits%8 != 0 {
+		return NodeID{}, fmt.Errorf("depth/index combination out of range: depth=%d index=%d maxPathBits=%v", depth, index, maxPathBits)
 	}
 	// This node is effectively a prefix of the subtree underneath (for non-leaf
 	// depths), so we shift the index accordingly.
@@ -233,7 +226,7 @@ func NewNodeIDForTreeCoords(depth int64, index int64, maxPathBits int) (NodeID, 
 func (n *NodeID) SetBit(i int, b uint) {
 	// TODO(al): investigate whether having lookup tables for these might be
 	// faster.
-	bIndex := (n.PathLenBits - i - 1) / 8
+	bIndex := (n.PathLenBits() - i - 1) / 8
 	if b == 0 {
 		n.Path[bIndex] &= ^(1 << uint(i%8))
 	} else {
@@ -241,12 +234,12 @@ func (n *NodeID) SetBit(i int, b uint) {
 	}
 }
 
-// Bit returns 1 if the ith bit is true, and false otherwise.
+// Bit returns 1 if the ith bit from the right is true, and false otherwise.
 func (n *NodeID) Bit(i int) uint {
-	if got, want := i, n.PathLenBits-1; got > want {
-		panic(fmt.Sprintf("storage: Bit(%v) > (PathLenBits -1): %v", got, want))
+	if got, want := i, n.PathLenBits()-1; got > want {
+		panic(fmt.Sprintf("storage: Bit(%v) > (PathLenBits() -1): %v", got, want))
 	}
-	bIndex := (n.PathLenBits - i - 1) / 8
+	bIndex := (n.PathLenBits() - i - 1) / 8
 	return uint((n.Path[bIndex] >> uint(i%8)) & 0x01)
 }
 
@@ -254,8 +247,8 @@ func (n *NodeID) Bit(i int) uint {
 // The left-most bit is the MSB (i.e. nearer the root of the tree).
 func (n *NodeID) String() string {
 	var r bytes.Buffer
-	limit := n.PathLenBits - n.PrefixLenBits
-	for i := n.PathLenBits - 1; i >= limit; i-- {
+	limit := n.PathLenBits() - n.PrefixLenBits
+	for i := n.PathLenBits() - 1; i >= limit; i-- {
 		r.WriteRune(rune('0' + n.Bit(i)))
 	}
 	return r.String()
@@ -265,7 +258,7 @@ func (n *NodeID) String() string {
 // tree coordinate. Using this on a NodeID for a sparse Merkle tree will give incorrect
 // results. Intended for debugging purposes, the format could change.
 func (n *NodeID) CoordString() string {
-	d := uint64(n.PathLenBits - n.PrefixLenBits)
+	d := uint64(n.PathLenBits() - n.PrefixLenBits)
 	i := uint64(0)
 	for _, p := range n.Path {
 		i = (i << uint64(8)) + uint64(p)
@@ -274,21 +267,71 @@ func (n *NodeID) CoordString() string {
 	return fmt.Sprintf("[d:%d, i:%d]", d, i>>d)
 }
 
+// Copy returns a duplicate of NodeID
+func (n *NodeID) Copy() *NodeID {
+	p := make([]byte, len(n.Path))
+	copy(p, n.Path)
+	return &NodeID{
+		Path:          p,
+		PrefixLenBits: n.PrefixLenBits,
+	}
+}
+
+// FlipRightBit flips the ith bit from LSB
+func (n *NodeID) FlipRightBit(i int) *NodeID {
+	n.SetBit(i, n.Bit(i)^1)
+	return n
+}
+
+// leftmask contains bitmasks indexed such that the left x bits are set. It is
+// indexed by byte position from 0-7 0 is special cased to 0xFF since 8 mod 8
+// is 0. leftmask is only used to mask the last byte.
+var leftmask = [8]byte{0xFF, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE}
+
+// MaskLeft returns NodeID with only the left n bits set
+func (n *NodeID) MaskLeft(depth int) *NodeID {
+	r := make([]byte, len(n.Path))
+	if depth > 0 {
+		// Copy the first depthBytes.
+		depthBytes := bytesForBits(depth)
+		copy(r, n.Path[:depthBytes])
+		// Mask off unwanted bits in the last byte.
+		r[depthBytes-1] = r[depthBytes-1] & leftmask[depth%8]
+	}
+	if depth < n.PrefixLenBits {
+		n.PrefixLenBits = depth
+	}
+	n.Path = r
+	return n
+}
+
+// Neighbor returns the same node with the bit at PrefixLenBits flipped.
+func (n *NodeID) Neighbor() *NodeID {
+	height := n.PathLenBits() - n.PrefixLenBits
+	n.FlipRightBit(height)
+	return n
+}
+
 // Siblings returns the siblings of the given node.
 func (n *NodeID) Siblings() []NodeID {
-	r := make([]NodeID, n.PrefixLenBits, n.PrefixLenBits)
-	l := n.PrefixLenBits
-	// Index of the bit to twiddle:
-	bi := n.PathLenBits - n.PrefixLenBits
-	for i := 0; i < len(r); i++ {
-		r[i].PrefixLenBits = l - i
-		r[i].Path = make([]byte, len(n.Path))
-		r[i].PathLenBits = n.PathLenBits
-		copy(r[i].Path, n.Path)
-		r[i].SetBit(bi, n.Bit(bi)^1)
-		bi++
+	sibs := make([]NodeID, n.PrefixLenBits)
+	for height := range sibs {
+		depth := n.PrefixLenBits - height
+		sibs[height] = *(n.Copy().MaskLeft(depth).Neighbor())
 	}
-	return r
+	return sibs
+}
+
+// NewNodeIDFromPrefixSuffix undoes Split() and returns the NodeID.
+func NewNodeIDFromPrefixSuffix(prefix []byte, suffix Suffix, maxPathBits int) NodeID {
+	path := make([]byte, maxPathBits/8)
+	copy(path, prefix)
+	copy(path[len(prefix):], suffix.Path)
+
+	return NodeID{
+		Path:          path,
+		PrefixLenBits: len(prefix)*8 + int(suffix.Bits),
+	}
 }
 
 // Split splits a NodeID into a prefix and a suffix at prefixSplit
@@ -299,11 +342,19 @@ func (n *NodeID) Split(prefixBytes, suffixBits int) ([]byte, Suffix) {
 	a := make([]byte, len(n.Path))
 	copy(a, n.Path)
 
-	sfx := Suffix{
-		Bits: byte((n.PrefixLenBits-1)%suffixBits) + 1,
-		Path: a[prefixBytes : prefixBytes+suffixBits/8],
+	bits := n.PrefixLenBits - prefixBytes*8
+	if bits > suffixBits {
+		panic(fmt.Sprintf("storage Split: %x(n.PrefixLenBits: %v - prefixBytes: %v *8) > %v", n.Path, n.PrefixLenBits, prefixBytes, suffixBits))
 	}
-	maskIndex := int((sfx.Bits - 1) / 8)
+	if bits == 0 {
+		panic(fmt.Sprintf("storage Split: %x(n.PrefixLenBits: %v - prefixBytes: %v *8) == 0", n.Path, n.PrefixLenBits, prefixBytes))
+	}
+	suffixBytes := bytesForBits(bits)
+	sfx := Suffix{
+		Bits: byte(bits),
+		Path: a[prefixBytes : prefixBytes+suffixBytes],
+	}
+	maskIndex := (bits - 1) / 8
 	maskLowBits := (sfx.Bits-1)%8 + 1
 	sfx.Path[maskIndex] &= ((0x01 << maskLowBits) - 1) << uint(8-maskLowBits)
 

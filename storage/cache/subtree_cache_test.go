@@ -16,7 +16,6 @@ package cache
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"testing"
@@ -26,6 +25,7 @@ import (
 	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/google/trillian/storage"
 	"github.com/google/trillian/storage/storagepb"
+	"github.com/google/trillian/testonly"
 
 	"github.com/golang/mock/gomock"
 	"github.com/kylelemons/godebug/pretty"
@@ -33,13 +33,16 @@ import (
 	stestonly "github.com/google/trillian/storage/testonly"
 )
 
-var defaultLogStrata = []int{8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8}
-var defaultMapStrata = []int{8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 176}
+var (
+	defaultLogStrata = []int{8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8}
+	defaultMapStrata = []int{8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 176}
+	h2b              = testonly.MustHexDecode
+)
 
 const treeID = int64(0)
 
 func TestSplitNodeID(t *testing.T) {
-	c := NewSubtreeCache(defaultMapStrata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(defaultMapStrata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 	for _, tc := range []struct {
 		inPath        []byte
 		inPathLenBits int
@@ -85,7 +88,7 @@ func TestCacheFillOnlyReadsSubtrees(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	m := NewMockNodeStorage(mockCtrl)
-	c := NewSubtreeCache(defaultLogStrata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(defaultLogStrata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 
 	nodeID := storage.NewNodeIDFromHash([]byte("1234"))
 	// When we loop around asking for all 0..32 bit prefix lengths of the above
@@ -114,7 +117,7 @@ func TestCacheGetNodesReadsSubtrees(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	m := NewMockNodeStorage(mockCtrl)
-	c := NewSubtreeCache(defaultLogStrata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(defaultLogStrata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 
 	nodeIDs := []storage.NodeID{
 		storage.NewNodeIDFromHash([]byte("1234")),
@@ -167,7 +170,7 @@ func TestCacheFlush(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	m := NewMockNodeStorage(mockCtrl)
-	c := NewSubtreeCache(defaultMapStrata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(defaultMapStrata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 
 	h := "0123456789abcdef0123456789abcdef"
 	nodeID := storage.NewNodeIDFromHash([]byte(h))
@@ -245,7 +248,7 @@ func TestCacheFlush(t *testing.T) {
 }
 
 func TestRepopulateLogSubtree(t *testing.T) {
-	populateTheThing := PopulateLogSubtreeNodes(rfc6962.DefaultHasher)
+	populateTheThing := populateLogSubtreeNodes(rfc6962.DefaultHasher)
 	cmt := merkle.NewCompactMerkleTree(rfc6962.DefaultHasher)
 	cmtStorage := storagepb.SubtreeProto{
 		Leaves:        make(map[string][]byte),
@@ -256,7 +259,7 @@ func TestRepopulateLogSubtree(t *testing.T) {
 		Leaves: make(map[string][]byte),
 		Depth:  int32(defaultLogStrata[0]),
 	}
-	c := NewSubtreeCache(defaultLogStrata, PopulateLogSubtreeNodes(rfc6962.DefaultHasher), PrepareLogSubtreeWrite())
+	c := NewSubtreeCache(defaultLogStrata, populateLogSubtreeNodes(rfc6962.DefaultHasher), prepareLogSubtreeWrite())
 	for numLeaves := int64(1); numLeaves <= 256; numLeaves++ {
 		// clear internal nodes
 		s.InternalNodes = make(map[string][]byte)
@@ -313,7 +316,7 @@ func TestPrefixLengths(t *testing.T) {
 	strata := []int{8, 8, 16, 32, 64, 128}
 	stratumInfo := []stratumInfo{{0, 8}, {1, 8}, {2, 16}, {2, 16}, {4, 32}, {4, 32}, {4, 32}, {4, 32}, {8, 64}, {8, 64}, {8, 64}, {8, 64}, {8, 64}, {8, 64}, {8, 64}, {8, 64}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}, {16, 128}}
 
-	c := NewSubtreeCache(strata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(strata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 
 	if diff := pretty.Compare(c.stratumInfo, stratumInfo); diff != "" {
 		t.Fatalf("prefixLengths diff:\n%v", diff)
@@ -321,7 +324,7 @@ func TestPrefixLengths(t *testing.T) {
 }
 
 func TestGetStratumInfo(t *testing.T) {
-	c := NewSubtreeCache(defaultMapStrata, PopulateMapSubtreeNodes(treeID, maphasher.Default), PrepareMapSubtreeWrite())
+	c := NewSubtreeCache(defaultMapStrata, populateMapSubtreeNodes(treeID, maphasher.Default), prepareMapSubtreeWrite())
 	testVec := []struct {
 		depth int
 		info  stratumInfo
@@ -341,13 +344,4 @@ func TestGetStratumInfo(t *testing.T) {
 			t.Errorf("(test %d for depth %d) diff:\n%v", i, tv.depth, diff)
 		}
 	}
-}
-
-// h2b converts a hex string into []byte.
-func h2b(h string) []byte {
-	b, err := hex.DecodeString(h)
-	if err != nil {
-		panic("invalid hex string")
-	}
-	return b
 }

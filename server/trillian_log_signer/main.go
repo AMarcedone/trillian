@@ -100,6 +100,7 @@ func main() {
 	}
 
 	mf := prometheus.MetricFactory{}
+	quota.InitMetrics(mf)
 
 	registry := extension.Registry{
 		AdminStorage:    mysql.NewAdminStorage(db),
